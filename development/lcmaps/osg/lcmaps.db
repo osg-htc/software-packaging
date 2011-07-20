@@ -1,0 +1,70 @@
+# Module definitions
+path = @LIBDIR@/modules
+
+good = "lcmaps_dummy_good.mod"
+bad  = "lcmaps_dummy_bad.mod"
+
+posix_enf = "lcmaps_posix_enf.mod"
+            "-maxuid 1 -maxpgid 1 -maxsgid 32"
+
+sazclient = "lcmaps_saz_client.mod"
+            "-resourcetype ce"
+            "-actiontype execute-now"
+            "-capath /etc/grid-security/certificates"
+            "-cert   /etc/grid-security/hostcert.pem"
+            "-key    /etc/grid-security/hostkey.pem"
+            "--cert-owner root"
+            "-authorization-only"
+# Change this URL to your SAZ server if you have one
+            "--endpoint https://fgdevsaz.fnal.gov:8443/saz/services/SAZXACMLAuthorizationServicePort"
+# Uncomment this to set a different expected host certificate name for server
+#            "--override-expected-hostname overridesazname.yourdomain"
+
+gumsclient = "lcmaps_gums_client.mod"
+             "-resourcetype ce"
+             "-actiontype execute-now"
+             "-capath /etc/grid-security/certificates"
+             "-cert   /etc/grid-security/hostcert.pem"
+             "-key    /etc/grid-security/hostkey.pem"
+             "--cert-owner root"
+# Change this URL to your GUMS server
+             "--endpoint https://red-auth.unl.edu:8443/gums/services/GUMSXACMLAuthorizationServicePort"
+# Uncomment this to set a different expected host certificate name for server
+#            "--override-expected-hostname overridegumsname.yourdomain"
+
+verifyproxy = "lcmaps_verify_proxy.mod"
+          "--allow-limited-proxy"
+          " -certdir /etc/grid-security/certificates"
+
+tracking = "lcmaps_tracking.mod"
+           "-exec /usr/sbin/glexec_monitor"
+           "-procddir /usr"
+# Uncomment to write tracking info to glexec_monitor.log in the given dir
+#         "-logdir /var/log/glexec"
+# Uncomment to use local time in the file log (doesn't apply to syslog)
+#         "-datetime-local"
+# Uncomment to change the minimum tracking group id
+#         "-min-gid 65000"
+# Uncomment to change the maximum tracking group id
+#         "-max-gid 65049"
+# Uncomment to not kill processes still running after the main process finishes
+#         "-dont-kill-leftovers"
+
+# Mapping policies
+
+globus_gridftp_mapping:
+
+gumsclient -> posix_enf
+
+osg_default:
+
+verifyproxy -> gumsclient
+
+glexec:
+
+##  If using SAZ, uncomment the following two lines and comment the next
+##verifyproxy -> sazclient
+##sazclient -> gumsclient
+verifyproxy -> gumsclient
+gumsclient -> tracking
+
