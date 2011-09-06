@@ -1,0 +1,18 @@
+[osg-development]
+name=OSG Software for Enterprise Linux 5 - Development - $basearch 
+mirrorlist=http://repo.grid.iu.edu/mirror/osg-development/$basearch
+failovermethod=priority
+priority=98
+enabled=0
+gpgcheck=0
+#gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-OSG
+
+[osg-development-source]
+name=OSG Software for Enterprise Linux 5 - Development - $basearch - Source
+mirrorlist=http://repo.grid.iu.edu/mirror/osg-development/source/SRPMS
+failovermethod=priority
+priority=98
+enabled=0
+gpgcheck=0
+#gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-OSG
+
