@@ -1,0 +1,8 @@
+
+This is a repackaging of the EPEL globus-gram-job-manager
+
+There are two patches of note:
+1) logging_null.patch: Fixes a segfault when TRACE logs are turned on.
+2) double_lock.patch: Fixes a deadlock in job-manager upon startup.
+
+Source downloaded from 'http://bamboo.globus.org/browse/GT512-RPMCENTOS5-15/artifact/repo/centos/5/SRPMS/globus-gram-job-manager-13.2-1.src.rpm'
