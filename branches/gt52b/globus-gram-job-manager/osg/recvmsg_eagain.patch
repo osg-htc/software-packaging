@@ -1,0 +1,13 @@
+Index: startup_socket.c
+===================================================================
+--- startup_socket.c.orig	2011-09-06 15:18:22.000000000 -0500
++++ startup_socket.c	2011-09-06 15:18:22.000000000 -0500
+@@ -1149,7 +1149,7 @@
+             if (rc <= 0 && errno == EAGAIN)
+             {
+                 tries--;
+-                globus_libc_usleep(10000);
++                globus_libc_usleep(1000000);
+             }
+             else
+             {

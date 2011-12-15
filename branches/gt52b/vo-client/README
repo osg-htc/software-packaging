@@ -1,0 +1,11 @@
+
+This is a pass-through package of the the tarball
+that is maintained by GOC and provides following files:
+- vomses 
+- edg-mkgridmap.conf
+- vomsdir (directory tree)
+
+
+This means the GOC now needs to add the creation of the vomsdir tree.
+This can be done with
+osg-make-vomsdir --vomsdir vomsdir --vomses vomses
