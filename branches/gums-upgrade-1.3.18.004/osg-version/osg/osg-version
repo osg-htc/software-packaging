@@ -1,0 +1,10 @@
+#!/bin/sh
+
+if [ -e /etc/osg-version ]; then
+    echo -n 'OSG '
+    cat /etc/osg-version
+else
+    echo "Unknown OSG version"
+fi
+
+exit 0
