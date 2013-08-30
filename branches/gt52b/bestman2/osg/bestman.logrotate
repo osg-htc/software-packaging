@@ -1,7 +1,0 @@
-/var/log/bestman2/*.log {
-    weekly
-    rotate 10
-    missingok
-    notifempty
-}
-
