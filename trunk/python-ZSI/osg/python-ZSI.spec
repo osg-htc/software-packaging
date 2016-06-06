@@ -34,6 +34,11 @@ find doc/examples -name .cvs\* -exec rm -f {} \;
 find doc/examples samples -perm 755 -type f -exec chmod a-x {} \;
 
 %build
+%if 0%{?rhel} < 7
+echo "This package is for EL 7 only" 1>&2
+exit 1
+%endif
+
 %{__python} setup.py build
 
 
