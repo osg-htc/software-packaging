@@ -1,0 +1,16 @@
+[Unit]
+Description=GitHub update service
+After=network.target
+Wants=network.target
+
+[Service]
+ExecStart=/home/centos/github-update/updategithub.sh
+WorkingDirectory=/home/centos/github-update/
+RestartSec=5min
+Restart=always
+User=centos
+Nice=19
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
