@@ -1,6 +1,6 @@
 Name:           osg-release-itb
 Version:        3.6
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        OSG Software for Enterprise Linux repository configuration
 
 License:        GPL
@@ -59,6 +59,9 @@ sed -i -e 's/gpgcheck=1/gpgcheck=0/' $RPM_BUILD_ROOT%{_sysconfdir}/yum.repos.d/*
 
 
 %changelog
+* Mon Feb 08 2021 Brian Lin <blin@cs.wisc.edu> - 3.6-2
+- Rebuild for DevOps repo (SOFTWARE-4465)
+
 * Mon Feb 08 2021 Brian Lin <blin@cs.wisc.edu> - 3.6-1
 - New OSG 3.6 repos (SOFTWARE-4465)
 
