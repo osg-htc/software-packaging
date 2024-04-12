@@ -1,6 +1,0 @@
-OSG singularity is built from fedora src rpms.  Download from the
-fedora koji, for example
-
-    wget https://kojipkgs.fedoraproject.org/packages/singularity/3.0.2/1.1.fc30/src/singularity-3.0.2-1.1.fc30.src.rpm
-
-where 3.0.2 is the version and 1.1 is the release.
