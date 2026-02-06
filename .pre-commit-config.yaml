@@ -1,0 +1,11 @@
+repos:
+-   repo: "https://github.com/pre-commit/pre-commit-hooks"
+    # v6.0.0 requires Python 3.9+ (not on EL8).
+    # v4.1.0 is the newest that still supports Python 3.6, but
+    # results in warnings about 'deprecated stage names'.
+
+    rev: v6.0.0
+    # rev: v4.1.0
+    hooks:
+    -   id: check-added-large-files
+        args: ["--maxkb=512"]
