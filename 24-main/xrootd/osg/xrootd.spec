@@ -44,7 +44,7 @@
 #-------------------------------------------------------------------------------
 Name:		xrootd
 Epoch:		1
-Release:	1.3%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.4%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
@@ -86,6 +86,8 @@ Patch8: 0008-41-Fix-null-pointer-dereference-in-ThrottleManager~a327e0e.patch
 Patch9: 0009-42-Full-pkcs11-integration~d92e458.patch
 # PelicanPlatform/xrootd #45 (no upstream)
 Patch10: 0010-45-Revert-XrdHttp-Undo-HTTP-PUT-response-code-change~6d22469.patch
+# PelicanPlatform/xrootd #46 (xrootd/xrootd #2741)
+Patch11: 0011-46-Use-correct-format-specifier-for-user-connections~ec7d5f7.patch
 
 BuildRequires:	cmake
 BuildRequires:	gcc-c++
@@ -966,6 +968,9 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Wed Mar 11 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.1-1.4
+- Add 0011-46-Use-correct-format-specifier-for-user-connections~ec7d5f7.patch (SOFTWARE-6310)
+
 * Thu Jan 29 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.1-1.3
 - Add 0009-42-Full-pkcs11-integration~d92e458.patch (SOFTWARE-6280)
 - Add 0010-45-Revert-XrdHttp-Undo-HTTP-PUT-response-code-change~6d22469.patch (SOFTWARE-6280)

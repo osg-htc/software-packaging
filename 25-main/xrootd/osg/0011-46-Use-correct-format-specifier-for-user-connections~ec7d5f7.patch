@@ -1,0 +1,41 @@
+From 7c9713a5981d4b8c57b01a2dc15607e78a177688 Mon Sep 17 00:00:00 2001
+From: Justin Hiemstra <jhiemstra@wisc.edu>
+Date: Wed, 11 Mar 2026 20:57:19 +0000
+Subject: [PATCH 11/11] [#46] Use correct format specifier for user connections
+ in monitoring report
+
+Caught this from a user-reported error in Pelican:
+msg="Pelican failed to handle monitoring packet received from XRootD:
+Provided ID, -7865, is not a valid uint32"
+
+It looks like `Did` is in fact a uint32, but the `snprintf` statements
+had the wrong format specifier.
+---
+ src/XrdXrootd/XrdXrootdMonitor.cc | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/XrdXrootd/XrdXrootdMonitor.cc b/src/XrdXrootd/XrdXrootdMonitor.cc
+index 87d6a00e6..fc811a1eb 100644
+--- a/src/XrdXrootd/XrdXrootdMonitor.cc
++++ b/src/XrdXrootd/XrdXrootdMonitor.cc
+@@ -337,7 +337,7 @@ void XrdXrootdMonitor::User::Report(int eCode, int aCode)
+ {
+    char buff[1024];
+ 
+-   snprintf(buff, sizeof(buff), "&Uc=%d&Ec=%d&Ac=%d", ntohl(Did), eCode, aCode);
++   snprintf(buff, sizeof(buff), "&Uc=%u&Ec=%d&Ac=%d", ntohl(Did), eCode, aCode);
+ 
+    XrdXrootdMonitor::Map(XROOTD_MON_MAPUEAC,*this,buff);
+ }
+@@ -352,7 +352,7 @@ bool XrdXrootdMonitor::User::Report(WhatInfo infoT, const char *info)
+ //
+    if (infoT != TokenInfo) return false;
+ 
+-   snprintf(buff, sizeof(buff), "&Uc=%d%s%s", ntohl(Did),
++   snprintf(buff, sizeof(buff), "&Uc=%u%s%s", ntohl(Did),
+                                 (*info == '&' ? "" : "&"), info);
+ 
+    XrdXrootdMonitor::Map(XROOTD_MON_MAPTOKN,*this,buff);
+-- 
+2.47.3
+
