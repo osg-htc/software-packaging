@@ -2,21 +2,30 @@
 Summary: Client tools for OSG Topology
 Name: topology-client
 Version: 1.69.1
-Release: 1%{?dist}
+Release: 2%{?dist}
 Source: topology-%{version}.tar.gz
 License: Apache 2.0
 BuildArch: noarch
 Url: https://github.com/opensciencegrid/topology/
 BuildRequires: unzip
 BuildRequires: python3-requests
+
+%if 0%{?rhel} <= 9
 BuildRequires: python3-gnupg
 Requires: python3-gnupg
+%endif
 
 Requires: python3-requests
 
 %define __python /usr/bin/python3
 BuildRequires: python3-devel
 BuildRequires: %__python
+
+%if 0%{?el10}
+# obtained via `python3 -m pip download python-gnupg`. Python3-gnupg is no longer available from EL10 EPEL
+Source1: https://vdt.cs.wisc.edu/upstream/topology-client/python-deps/python_gnupg-0.5.6-py2.py3-none-any.whl
+Patch0: 0001-PATCH-Find-local-install-of-python-gnupg.patch
+%endif
 
 %description
 Client tools that interact with OSG Topology data
@@ -31,6 +40,10 @@ A utility for periodically downloading OSG Topology data.
 
 %prep
 %setup -q -n topology-%{version}
+%if 0%{?el10}
+%patch0 -p1
+%endif
+
 
 %install
 install -D -m 0755 bin/osg-notify %{buildroot}/%{_bindir}/osg-notify
@@ -38,6 +51,11 @@ install -D -m 0644 src/net_name_addr_utils.py  %{buildroot}/%{python_sitelib}/ne
 install -D -m 0644 src/topology_utils.py %{buildroot}/%{python_sitelib}/topology_utils.py
 install -D -m 0755 src/topology_cacher.py %{buildroot}/%{python_sitelib}/topology_cacher.py
 install -D -m 0644 topology-cacher.cron %{buildroot}/etc/cron.d/topology-cacher.cron
+%if 0%{?el10}
+    unzip %{SOURCE1}
+    install -D -m 0644 gnupg.py %{buildroot}/usr/lib/topology-client/gnupg.py
+%endif
+
 
 %files
 %{_bindir}/osg-notify
@@ -45,6 +63,10 @@ install -D -m 0644 topology-cacher.cron %{buildroot}/etc/cron.d/topology-cacher.
 %{python_sitelib}/topology_utils.py*
 %{python_sitelib}/__pycache__/net_name_addr_utils*
 %{python_sitelib}/__pycache__/topology_utils*
+%if 0%{?el10}
+    /usr/lib/topology-client/*
+%endif
+
 
 %files -n topology-cacher
 %{python_sitelib}/topology_cacher.py*
@@ -53,6 +75,9 @@ install -D -m 0644 topology-cacher.cron %{buildroot}/etc/cron.d/topology-cacher.
 
 
 %changelog
+* Mon Mar 17 2026 Matt Westphall <westphall@wisc.edu> - 1.69.1-2
+- Add workaround for missing python3-gnupg package in EL10 EPEL
+
 * Mon Feb 2 2026 Matt Westphall <westphall@wisc.edu> - 1.69.1-1
 - Fix issue with tls client auth config in el9 osg-notify (SOFTWARE-6278)
 
