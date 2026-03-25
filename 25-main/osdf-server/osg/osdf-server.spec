@@ -1,7 +1,7 @@
 Summary: Service files for Pelican-based OSDF daemons
 Name: osdf-server
 Version: 25
-Release: 2%{?dist}
+Release: 3%{?dist}
 License: ASL 2.0
 Url: https://github.com/PelicanPlatform/pelican
 BuildArch: noarch
@@ -15,6 +15,7 @@ Source3: 50-webui.yaml
 
 Requires: pelican-server >= 7.19
 Requires: xrootd-multiuser
+Requires: xrdcl-pelican
 %if 0%{?rhel} >= 9
 Requires: xrootd-s3-http >= 0.4.1
 %endif
@@ -233,6 +234,9 @@ fi
 
 
 %changelog
+* Wed Mar 25 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 25-3
+- Add missing xrdcl-pelican dependency (SOFTWARE-6258)
+
 * Fri Oct 10 2025 Mátyás Selmeci <mselmeci@wisc.edu> - 25-2
 - Stop overriding host cert/key locations; migrate existing certs
 
