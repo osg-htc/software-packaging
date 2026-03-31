@@ -44,14 +44,14 @@
 #-------------------------------------------------------------------------------
 Name:		xrootd
 Epoch:		1
-Release:	1.4%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
 URL:		https://xrootd.org
 
 %if !%{with git}
-Version:	5.9.1
+Version:	5.9.2
 Source0:	https://xrootd.web.cern.ch/download/v%{version}/%{name}-%{version}.tar.gz
 %else
 %define git_version %(tar xzf %{_sourcedir}/%{name}.tar.gz -O xrootd/VERSION)
@@ -70,24 +70,18 @@ Source1:   xrootd-%{compat_version}.tar.gz
 Patch1: 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
 # PelicanPlatform/xrootd #6 (xrootd/xrootd #2397):
 Patch2: 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~d8842b6.patch
-# PelicanPlatform/xrootd #14 (no upstream):
-Patch3: 0003-14-XrdHttp-Undo-HTTP-PUT-response-code-change~73ddc83.patch
-# PelicanPlatform/xrootd #25
-Patch4: 0004-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
+# PelicanPlatform/xrootd #25 (no upstream)
+Patch3: 0003-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
 # PelicanPlatform/xrootd #32 (xrootd/xrootd #2472)
-Patch5: 0005-32-Enable-write-through-mode-for-cache~330eac1.patch
+Patch4: 0004-32-Enable-write-through-mode-for-cache~330eac1.patch
 # PelicanPlatform/xrootd #34 (no upstream)
-Patch6: 0006-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
+Patch5: 0005-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
 # PelicanPlatform/xrootd #36 (no upstream)
-Patch7: 0007-37-Add-TPC-worker-pool~31dd3de.patch
-# PelicanPlatform/xrootd #41 (xrootd/xrootd #2645)
-Patch8: 0008-41-Fix-null-pointer-dereference-in-ThrottleManager~a327e0e.patch
+Patch6: 0006-37-Add-TPC-worker-pool~08d3d9a.patch
 # PelicanPlatform/xrootd #44 (xrootd/xrootd #2576)
-Patch9: 0009-42-Full-pkcs11-integration~d92e458.patch
-# PelicanPlatform/xrootd #45 (no upstream)
-Patch10: 0010-45-Revert-XrdHttp-Undo-HTTP-PUT-response-code-change~6d22469.patch
-# PelicanPlatform/xrootd #46 (xrootd/xrootd #2741)
-Patch11: 0011-46-Use-correct-format-specifier-for-user-connections~ec7d5f7.patch
+Patch7: 0007-42-Full-pkcs11-integration~d92e458.patch
+# PelicanPlatform/xrootd #48 (no upstream)
+Patch8: 0008-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 
 BuildRequires:	cmake
 BuildRequires:	gcc-c++
@@ -968,6 +962,25 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Tue Mar 31 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.2-1.1
+- Update to XRootD 5.9.2 (SOFTWARE-6324)
+    - Patches added:
+        - 0008-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+    - Patches kept:
+        - 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
+        - 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~d8842b6.patch
+        - 0004-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch -> 0003-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
+        - 0005-32-Enable-write-through-mode-for-cache~330eac1.patch -> 0004-32-Enable-write-through-mode-for-cache~330eac1.patch
+        - 0006-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch -> 0005-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
+        - 0007-37-Add-TPC-worker-pool~31dd3de.patch -> 0006-37-Add-TPC-worker-pool~08d3d9a.patch
+        - 0009-42-Full-pkcs11-integration~d92e458.patch -> 0007-42-Full-pkcs11-integration~d92e458.patch
+    - Patches dropped:
+        - 0003-14-XrdHttp-Undo-HTTP-PUT-response-code-change~73ddc83.patch
+        - 0008-41-Fix-null-pointer-dereference-in-ThrottleManager~a327e0e.patch
+        - 0010-45-Revert-XrdHttp-Undo-HTTP-PUT-response-code-change~6d22469.patch
+        - 0011-46-Use-correct-format-specifier-for-user-connections~ec7d5f7.patch
+
+
 * Wed Mar 11 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.1-1.4
 - Add 0011-46-Use-correct-format-specifier-for-user-connections~ec7d5f7.patch (SOFTWARE-6310)
 

@@ -1,7 +1,7 @@
-From 25a4ba9c2c82d8204ff6c3a7ccc0f067997d6120 Mon Sep 17 00:00:00 2001
+From e239817cc06162bb5915584913a62325807f312f Mon Sep 17 00:00:00 2001
 From: Matyas Selmeci <mselmeci@wisc.edu>
 Date: Wed, 13 Aug 2025 13:27:10 -0500
-Subject: [PATCH 7/7] [37] Add TPC worker pool
+Subject: [PATCH 6/8] [#37] Add TPC worker pool
 
 Squashed commit of the following:
 
@@ -111,9 +111,9 @@ Date:   Tue May 6 17:37:37 2025 +0200
  src/XrdSys/XrdSysRAtomic.hh              |  22 ++
  tests/TPCTests/CMakeLists.txt            |   1 +
  tests/TPCTests/common.cfg                |   7 +
- tests/TPCTests/test.sh                   |  77 ++--
+ tests/TPCTests/test.sh                   |  75 +++-
  tests/TPCTests/test_tpc_cancellations.sh |  81 +++++
- 15 files changed, 859 insertions(+), 263 deletions(-)
+ 15 files changed, 858 insertions(+), 262 deletions(-)
  create mode 100644 src/XrdHttpTpc/XrdHttpTpcPool.cc
  create mode 100644 src/XrdHttpTpc/XrdHttpTpcPool.hh
  create mode 100644 tests/TPCTests/test_tpc_cancellations.sh
@@ -1351,7 +1351,7 @@ index cfe089194..ea37bf485 100644
  auth.trace   all
  tpc.trace    all
 diff --git a/tests/TPCTests/test.sh b/tests/TPCTests/test.sh
-index e65e27077..95cf934a9 100755
+index 9ebffe9cc..4cbf2f4c0 100755
 --- a/tests/TPCTests/test.sh
 +++ b/tests/TPCTests/test.sh
 @@ -1,9 +1,5 @@
@@ -1390,7 +1390,7 @@ index e65e27077..95cf934a9 100755
  }
  
  check_commands "${ADLER32}" "${CRC32C}" "${XRDCP}" "${XRDFS}" "${OPENSSL}" "${CURL}"
-@@ -65,24 +61,24 @@ declare -a hosts_abbrev=(
+@@ -65,12 +61,12 @@ declare -a hosts_abbrev=(
  )
  
  setup_scitokens() {
@@ -1409,19 +1409,6 @@ index e65e27077..95cf934a9 100755
  }
  
  # Cleanup function
- # shellcheck disable=SC2317
- cleanup() {
-     ## Cleanup empty files
-     src_idx=0
-     dst_idx=1
-     src=${hosts_abbrev[${src_idx}]}
-     dst=${hosts_abbrev[${dst_idx}]}
-     rm "${LCLDATADIR}/${src}_empty.dat" || :
--    rm "${LCLDATADIR}/${dst}_empty.ref" || :
-+    rm "${LCLDATADIR}/${src}_empty.ref" || :
-     ${XRDFS} "${hosts[$src_idx]}" rm "${RMTDATADIR}/${src}_empty.ref" || :
-     for mode in "_http_pull" "_http_push" ""; do
-         rm "${LCLDATADIR}/${src}_to_${dst}_empty.dat${mode}" || :
 @@ -116,7 +112,6 @@ cleanup() {
  trap "cleanup" ERR
  

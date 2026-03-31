@@ -1,7 +1,7 @@
-From 8f0075b91bfb4a7b7cba74b43701628b245ebb21 Mon Sep 17 00:00:00 2001
+From e8010ef89669d83fe4d8c84eb4e464e064279d13 Mon Sep 17 00:00:00 2001
 From: Howard Zhong <61568048+h2zh@users.noreply.github.com>
 Date: Thu, 29 Jan 2026 11:31:56 -0600
-Subject: [PATCH 09/10] Full pkcs11 integration (#42)
+Subject: [PATCH 7/8] [#42] Full pkcs11 integration
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -73,10 +73,10 @@ Co-authored-by: Brian Bockelman <bbockelman@morgridge.org>
  2 files changed, 198 insertions(+), 7 deletions(-)
 
 diff --git a/src/Xrd/XrdConfig.cc b/src/Xrd/XrdConfig.cc
-index 9f936409a..9e0226769 100644
+index 8e7986b6b..f7e6583bb 100644
 --- a/src/Xrd/XrdConfig.cc
 +++ b/src/Xrd/XrdConfig.cc
-@@ -2464,7 +2464,7 @@ int XrdConfig::xtls(XrdSysError *eDest, XrdOucStream &Config)
+@@ -2471,7 +2471,7 @@ int XrdConfig::xtls(XrdSysError *eDest, XrdOucStream &Config)
  
      if (!(val = Config.GetWord())) return 0;
  

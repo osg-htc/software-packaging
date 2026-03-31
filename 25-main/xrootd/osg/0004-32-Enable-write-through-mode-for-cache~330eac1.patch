@@ -1,7 +1,7 @@
-From 636b43d02d43ed31e65a42ea3eb1660ccfe87d34 Mon Sep 17 00:00:00 2001
+From ae5b01f0889666c3474c747b6c9b7535ba2ab930 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Sun, 6 Apr 2025 13:52:43 -0500
-Subject: [PATCH 5/7] [#32] Enable write-through mode for cache
+Subject: [PATCH 4/8] [#32] Enable write-through mode for cache
 
 Allow the PFC to proxy ("write-through") writes when configured
 to do so (default is current behavior of disabling writes).
@@ -127,5 +127,5 @@ index b01cbac19..2b5ae5c80 100644
     {
        tmpc.m_flushRaw = cwg.GetWord();
 -- 
-2.34.1
+2.47.3
 

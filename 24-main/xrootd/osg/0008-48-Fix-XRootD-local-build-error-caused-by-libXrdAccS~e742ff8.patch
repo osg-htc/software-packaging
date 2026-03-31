@@ -1,0 +1,25 @@
+From df8ad9f94c7e19ec99ef70fa8a033873a0eb7de1 Mon Sep 17 00:00:00 2001
+From: Howard Zhong <hzhong45@wisc.edu>
+Date: Wed, 27 Aug 2025 19:47:41 +0000
+Subject: [PATCH 8/8] [#48] Fix XRootD local build error caused by
+ libXrdAccSciTokens
+
+---
+ src/XrdSciTokens/CMakeLists.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/XrdSciTokens/CMakeLists.txt b/src/XrdSciTokens/CMakeLists.txt
+index 003a6496d..bb35d44ff 100644
+--- a/src/XrdSciTokens/CMakeLists.txt
++++ b/src/XrdSciTokens/CMakeLists.txt
+@@ -53,6 +53,7 @@ add_library(${XrdAccSciTokens} MODULE
+ target_link_libraries(${XrdAccSciTokens}
+   PRIVATE
+     XrdSciTokensObj
++    ${SCITOKENS_CPP_LIBRARIES}
+ )
+ 
+ install(
+-- 
+2.47.3
+

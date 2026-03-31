@@ -1,7 +1,7 @@
-From fcf19c8ce78c9305414d18e94aa35cbb8ff29771 Mon Sep 17 00:00:00 2001
+From a7a389b6007bca9ac16662b953ae88d92841128c Mon Sep 17 00:00:00 2001
 From: Emma Turetsky <turetske@gmail.com>
 Date: Thu, 8 May 2025 10:51:11 -0500
-Subject: [PATCH 4/7] [#25] XRootD's xml response for PROPFIND will now include
+Subject: [PATCH 3/8] [#25] XRootD's xml response for PROPFIND will now include
  the resourcetype tag for non-collections
 
 ---
@@ -9,10 +9,10 @@ Subject: [PATCH 4/7] [#25] XRootD's xml response for PROPFIND will now include
  1 file changed, 2 insertions(+)
 
 diff --git a/src/XrdHttp/XrdHttpReq.cc b/src/XrdHttp/XrdHttpReq.cc
-index baa2282a4..e2c188329 100644
+index f32f63d7d..fc8631134 100644
 --- a/src/XrdHttp/XrdHttpReq.cc
 +++ b/src/XrdHttp/XrdHttpReq.cc
-@@ -2548,6 +2548,7 @@ int XrdHttpReq::PostProcessHTTPReq(bool final_) {
+@@ -2429,6 +2429,7 @@ int XrdHttpReq::PostProcessHTTPReq(bool final_) {
                  stringresp += "<lp1:resourcetype><D:collection/></lp1:resourcetype>\n";
                  stringresp += "<lp1:iscollection>1</lp1:iscollection>\n";
                } else {
@@ -20,7 +20,7 @@ index baa2282a4..e2c188329 100644
                  stringresp += "<lp1:iscollection>0</lp1:iscollection>\n";
                }
  
-@@ -2664,6 +2665,7 @@ int XrdHttpReq::PostProcessHTTPReq(bool final_) {
+@@ -2545,6 +2546,7 @@ int XrdHttpReq::PostProcessHTTPReq(bool final_) {
                    stringresp += "<lp1:resourcetype><D:collection/></lp1:resourcetype>\n";
                    stringresp += "<lp1:iscollection>1</lp1:iscollection>\n";
                  } else {
@@ -29,5 +29,5 @@ index baa2282a4..e2c188329 100644
                  }
  
 -- 
-2.34.1
+2.47.3
 
