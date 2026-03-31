@@ -1,7 +1,7 @@
 
 Name: xrootd-multiuser
-Version: 2.2.0
-Release: 1.2%{?dist}
+Version: 2.2.1
+Release: 1.1%{?dist}
 Summary: Multiuser filesystem writing plugin for xrootd
 
 Group: System Environment/Daemons
@@ -68,6 +68,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 %{_sysconfdir}/xrootd/config.d/60-osg-multiuser.cfg
 
 %changelog
+* Tue Mar 31 2026 Matt Westphall <westphall@wisc.edu> - 2.2.1-1.1
+- Avoid segfault for anonymous clients with macaroons (SOFTWARE-6323)
+
 * Wed Sep 24 2025 Mátyás Selmeci <mselmeci@wisc.edu> - 2.2.0-1.2
 - Bump to rebuild for x86_64 on EL10
 
