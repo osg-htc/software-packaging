@@ -4,6 +4,9 @@
 # Disable shebang mangling (see GHI#436)
 %undefine __brp_mangle_shebangs
 
+# There is no debud package, disable auto-detect
+%define  debug_package %{nil}
+
 # How to build tar file
 
 # git clone http://cdcvs.fnal.gov/projects/glideinwms
@@ -12,9 +15,9 @@
 # change v3_0_rc3 to the proper tag in the above line
 
 # Release Candidates NVR format
-#%define release 0.1.rc1
+##define release 0.1.rc1
 # Official Release NVR format
-#%define release 2
+##define release 2
 
 # ------------------------------------------------------------------------------
 # For Release Candidate builds, check with Software team on release string
@@ -42,7 +45,11 @@
 %global systemctl_bin systemctl
 # Minimum HTCondor and Python required versions
 %global htcss_min_version 8.9.5
+%if 0%{?rhel} && %{rhel} <= 7
 %global python_min_version 3.6
+%else
+%global python_min_version 3.9
+%endif
 ##global python_min_version 3.9
 ##global __python3 /usr/bin/python3.9
 ##global python3_version 3.9
@@ -884,21 +891,6 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_sbindir}/glideFactory.py
 %attr(755,root,root) %{_sbindir}/glideFactoryEntry.py
 %attr(755,root,root) %{_sbindir}/glideFactoryEntryGroup.py
-
-%if %{?rhel}%{!?rhel:0} == 5
-%attr(755,root,root) %{_sbindir}/checkFactory.pyc
-%attr(755,root,root) %{_sbindir}/checkFactory.pyo
-%attr(755,root,root) %{_sbindir}/glideFactory.pyc
-%attr(755,root,root) %{_sbindir}/glideFactory.pyo
-%attr(755,root,root) %{_sbindir}/glideFactoryEntry.pyc
-%attr(755,root,root) %{_sbindir}/glideFactoryEntry.pyo
-%attr(755,root,root) %{_sbindir}/glideFactoryEntryGroup.pyc
-%attr(755,root,root) %{_sbindir}/glideFactoryEntryGroup.pyo
-%attr(755,root,root) %{_sbindir}/manageFactoryDowntimes.pyc
-%attr(755,root,root) %{_sbindir}/manageFactoryDowntimes.pyo
-%attr(755,root,root) %{_sbindir}/stopFactory.pyc
-%attr(755,root,root) %{_sbindir}/stopFactory.pyo
-%endif
 %attr(755,root,root) %{_sbindir}/info_glidein
 %attr(755,root,root) %{_sbindir}/manageFactoryDowntimes.py
 %attr(755,root,root) %{_sbindir}/reconfig_glidein
@@ -907,10 +899,11 @@ rm -rf $RPM_BUILD_ROOT
 %attr(-, gfactory, gfactory) %dir %{factory_base}/client-proxies
 %attr(-, gfactory, gfactory) %dir %{factory_base}/server-credentials
 %attr(0600, gfactory, gfactory) %{factory_base}/server-credentials/jwt_secret.key
-%attr(-, gfactory, gfactory) %dir %{factory_web_dir}
-%attr(-, gfactory, gfactory) %dir %{factory_web_base}
-%attr(-, gfactory, gfactory) %dir %{factory_base}/creation
-%attr(-, gfactory, gfactory) %dir %{factory_dir}
+# NOTE: Adding dir excludes the included files
+%attr(-, gfactory, gfactory) %{factory_web_dir}
+%attr(-, gfactory, gfactory) %{factory_web_base}
+%attr(-, gfactory, gfactory) %{factory_base}/creation
+%attr(-, gfactory, gfactory) %{factory_dir}
 %attr(-, gfactory, gfactory) %dir %{factory_condor_dir}
 %attr(-, gfactory, gfactory) %dir %{_localstatedir}/log/gwms-factory
 %attr(-, gfactory, gfactory) %dir %{_localstatedir}/log/gwms-factory/client
@@ -1001,7 +994,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(-, frontend, glidein) %dir %{_sysconfdir}/gwms-frontend/hooks.reconfig.pre
 %attr(-, frontend, glidein) %dir %{_sysconfdir}/gwms-frontend/hooks.reconfig.post
 %attr(-, frontend, glidein) %dir %{_sysconfdir}/gwms-frontend/plugin.d
-%attr(-, frontend, glidein) %config(noreplace) %{_sysconfdir}/gwms-frontend/plugin.d/
+%attr(-, frontend, glidein) %config(noreplace) %{_sysconfdir}/gwms-frontend/plugin.d/*
 %attr(0664, frontend, glidein) %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/gwms-frontend/frontend.xml
 # TODO: should these files be moved in the glidein package?
 %attr(-, frontend, glidein) %config(noreplace) %{_sysconfdir}/gwms-frontend/proxies.ini
@@ -1037,7 +1030,7 @@ rm -rf $RPM_BUILD_ROOT
 %{python3_sitelib}/glideinwms/creation/lib/__pycache__/cvWParams.*
 %{python3_sitelib}/glideinwms/creation/lib/__pycache__/matchPolicy.*
 %defattr(-,root,glidein,775)
-%{web_dir}
+%dir %{web_dir}
 %{web_base}
 %{frontend_dir}
 %defattr(664,root,glidein,775)
@@ -1097,8 +1090,8 @@ rm -rf $RPM_BUILD_ROOT
 %files logserver
 %defattr(-,root,root,-)
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/gwms-logserver.conf
-%attr(-, root, root) %{logserver_dir}
-%attr(-, root, apache) %{logserver_web_dir}
+%attr(-, root, root) %dir %{logserver_dir}
+%attr(-, root, apache) %dir %{logserver_web_dir}
 %attr(-, apache, apache) %{logserver_web_dir}/uploads
 %attr(-, apache, apache) %{logserver_web_dir}/uploads_unauthorized
 %attr(-, apache, apache) %{logserver_web_dir}/put.php
