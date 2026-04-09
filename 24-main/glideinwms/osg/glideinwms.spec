@@ -19,22 +19,24 @@
 # ------------------------------------------------------------------------------
 # For Release Candidate builds, check with Software team on release string
 # ------------------------------------------------------------------------------
-%global version 3.10.17
-%global release 1
+%global version 3.10.18
+%global release 0.2.rc2
 
 %global frontend_xml frontend.xml
 %global factory_xml glideinWMS.xml
-%global web_dir %{_localstatedir}/lib/gwms-frontend/web-area
-%global web_base %{_localstatedir}/lib/gwms-frontend/web-base
-%global frontend_dir %{_localstatedir}/lib/gwms-frontend/vofrontend
+%global frontend_base %{_localstatedir}/lib/gwms-frontend
+%global web_dir %{frontend_base}/web-area
+%global web_base %{frontend_base}/web-base
+%global frontend_dir %{frontend_base}/vofrontend
 %global frontend_token_dir %{_localstatedir}/lib/gwms-frontend/tokens.d
 %global frontend_passwd_dir %{_localstatedir}/lib/gwms-frontend/passwords.d
-%global factory_web_dir %{_localstatedir}/lib/gwms-factory/web-area
-%global factory_web_base %{_localstatedir}/lib/gwms-factory/web-base
-%global factory_dir %{_localstatedir}/lib/gwms-factory/work-dir
-%global factory_condor_dir %{_localstatedir}/lib/gwms-factory/condor
+%global factory_base %{_localstatedir}/lib/gwms-factory
+%global factory_web_dir %{factory_base}/web-area
+%global factory_web_base %{factory_base}/web-base
+%global factory_dir %{factory_base}/work-dir
+%global factory_condor_dir %{factory_base}/condor
 %global logserver_dir %{_localstatedir}/lib/gwms-logserver
-%global logserver_web_dir %{_localstatedir}/lib/gwms-logserver/web-area
+%global logserver_web_dir %{logserver_dir}/web-area
 %global systemddir %{_prefix}/lib/systemd/system
 # /usr/bin/systemctl would not work with the emulation in /usr/local/bin/systemctl used in Workspaces (containers)
 %global systemctl_bin systemctl
@@ -54,9 +56,9 @@ BuildArch:      noarch
 
 
 Source:         glideinwms.tar.gz
-Source1:        creation/templates/frontend_startup
+# Source1:        creation/templates/frontend_startup
 Source2:        %{frontend_xml}
-Source3:        creation/templates/factory_startup
+# Source3:        creation/templates/factory_startup
 Source4:        %{factory_xml}
 Source7:        chksum.sh
 Source11:       creation/templates/frontend_startup_sl7
@@ -365,8 +367,7 @@ sed -i "s/WEB_BASE_DIR *=.*/WEB_BASE_DIR = \"\/var\/lib\/gwms-factory\/web-base\
 sed -i "s/STARTUP_DIR *=.*/STARTUP_DIR = \"\/var\/lib\/gwms-factory\/web-base\"/" creation/reconfig_glidein
 sed -i "s/STARTUP_DIR *=.*/STARTUP_DIR = \"\/var\/lib\/gwms-factory\/web-base\"/" creation/clone_glidein
 
-#Create the RPM startup files (init.d) from the templates
-creation/create_rpm_startup . frontend_initd_startup_template factory_initd_startup_template %{SOURCE1} %{SOURCE3}
+#Create the RPM startup files (systemd) from the templates
 creation/create_rpm_startup . frontend_initd_startup_template_sl7 factory_initd_startup_template_sl7 %{SOURCE11} %{SOURCE12}
 
 # install the executables
@@ -454,7 +455,6 @@ rm -f $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/creation/templates/gwms-renew
 rm -f $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/creation/templates/gwms-renew-proxies.timer
 rm -f $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/creation/templates/proxies.ini
 
-%if 0%{?rhel} >= 7
 install -d $RPM_BUILD_ROOT/%{systemddir}
 install -m 0644 install/config/gwms-frontend.service $RPM_BUILD_ROOT/%{systemddir}/
 install -m 0644 install/config/gwms-factory.service $RPM_BUILD_ROOT/%{systemddir}/
@@ -463,15 +463,6 @@ install -m 0644 creation/templates/gwms-renew-proxies.timer $RPM_BUILD_ROOT/%{sy
 install -d $RPM_BUILD_ROOT/%{_sbindir}
 install -m 0755 %{SOURCE11} $RPM_BUILD_ROOT/%{_sbindir}/gwms-frontend
 install -m 0755 %{SOURCE12} $RPM_BUILD_ROOT/%{_sbindir}/gwms-factory
-%else
-# Install the init.d
-install -d $RPM_BUILD_ROOT%{_initrddir}
-install -d $RPM_BUILD_ROOT%{_sysconfdir}/cron.d
-install -m 0755 %{SOURCE1} $RPM_BUILD_ROOT%{_initrddir}/gwms-frontend
-install -m 0755 %{SOURCE3} $RPM_BUILD_ROOT%{_initrddir}/gwms-factory
-install -m 0755 creation/templates/gwms-renew-proxies.init $RPM_BUILD_ROOT%{_initrddir}/gwms-renew-proxies
-install -m 0644 creation/templates/gwms-renew-proxies.cron $RPM_BUILD_ROOT%{_sysconfdir}/cron.d/gwms-renew-proxies
-%endif
 
 # Install the web directory
 install -d $RPM_BUILD_ROOT%{frontend_dir}
@@ -513,9 +504,9 @@ install -d $RPM_BUILD_ROOT%{_localstatedir}/log/gwms-factory/server/factory
 install -d $RPM_BUILD_ROOT%{_localstatedir}/log/gwms-factory/client
 
 # Create some credential directories
-install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gwms-factory/client-proxies
-install -d $RPM_BUILD_ROOT%{_localstatedir}/lib/gwms-factory/server-credentials
-touch $RPM_BUILD_ROOT%{_localstatedir}/lib/gwms-factory/server-credentials/jwt_secret.key
+install -d $RPM_BUILD_ROOT%{factory_base}/client-proxies
+install -d $RPM_BUILD_ROOT%{factory_base}/server-credentials
+touch $RPM_BUILD_ROOT%{factory_base}/server-credentials/jwt_secret.key
 
 # Install frontend temp dir, for all the frontend.xml.<checksum>
 install -d $RPM_BUILD_ROOT%{frontend_dir}/lock
@@ -676,11 +667,8 @@ if [ -f %{_localstatedir}/log/gwms-frontend/frontend/startup.log ]; then
     chown frontend.frontend %{_localstatedir}/log/gwms-frontend/frontend/startup.log
 fi
 
-%if 0%{?rhel} >= 7
+# No more support for older than RHEL7 - %if 0%{?rhel} >= 7
 %{systemctl_bin} daemon-reload
-%else
-/sbin/chkconfig --add gwms-frontend
-%endif
 
 if [ ! -e %{frontend_dir}/monitor ]; then
     ln -s %{web_dir}/monitor %{frontend_dir}/monitor
@@ -718,11 +706,7 @@ if [ "$1" = "1" ] ; then
     fi
 fi
 
-%if 0%{?rhel} >= 7
 %{systemctl_bin} daemon-reload
-%else
-/sbin/chkconfig --add gwms-factory
-%endif
 
 # Protecting from failure in case it is not running/installed
 # /sbin/service condor condrestart > /dev/null 2>&1 || true
@@ -742,7 +726,7 @@ fi
 # Add the "frontend" user and group if they do not exist
 getent group frontend >/dev/null || groupadd -r frontend
 getent passwd frontend >/dev/null || \
-       useradd -r -g frontend -d /var/lib/gwms-frontend \
+       useradd -r -g frontend -d %{frontend_base} \
 	-c "VO Frontend user" -s /sbin/nologin frontend
 # If the frontend user already exists make sure it is part of frontend and glidein group
 usermod --append --groups frontend,glidein frontend >/dev/null
@@ -754,7 +738,7 @@ getent group glidein >/dev/null || groupadd -r glidein
 # Add the "gfactory" user and group if they do not exist
 getent group gfactory >/dev/null || groupadd -r gfactory
 getent passwd gfactory >/dev/null || \
-       useradd -r -g gfactory -d /var/lib/gwms-factory \
+       useradd -r -g gfactory -d %{factory_base} \
 	-c "GlideinWMS Factory user" -s /sbin/nologin gfactory
 # If the gfactory user already exists make sure it is part of gfactory group
 usermod --append --groups gfactory gfactory >/dev/null
@@ -772,11 +756,7 @@ usermod --append --groups frontend frontend >/dev/null
 # $1 = 1 - Action is upgrade
 
 if [ "$1" = "0" ] ; then
-    %if 0%{?rhel} >= 7
     %{systemctl_bin} daemon-reload
-    %else
-    /sbin/chkconfig --del gwms-frontend
-    %endif
 fi
 
 if [ "$1" = "0" ]; then
@@ -792,11 +772,7 @@ fi
 
 %preun factory-core
 if [ "$1" = "0" ] ; then
-    %if 0%{?rhel} >= 7
     %{systemctl_bin} daemon-reload
-    %else
-    /sbin/chkconfig --del gwms-factory
-    %endif
 fi
 if [ "$1" = "0" ]; then
     rm -f %{factory_dir}/log
@@ -922,14 +898,14 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_sbindir}/manageFactoryDowntimes.py
 %attr(755,root,root) %{_sbindir}/reconfig_glidein
 %attr(755,root,root) %{_sbindir}/clone_glidein
-%attr(-, root, root) %dir %{_localstatedir}/lib/gwms-factory
-%attr(-, gfactory, gfactory) %dir %{_localstatedir}/lib/gwms-factory/client-proxies
-%attr(-, gfactory, gfactory) %dir %{_localstatedir}/lib/gwms-factory/server-credentials
-%attr(0600, gfactory, gfactory) %{_localstatedir}/lib/gwms-factory/server-credentials/jwt_secret.key
-%attr(-, gfactory, gfactory) %{factory_web_dir}
-%attr(-, gfactory, gfactory) %{factory_web_base}
-%attr(-, gfactory, gfactory) %{factory_web_base}/../creation
-%attr(-, gfactory, gfactory) %{factory_dir}
+%attr(-, gfactory, gfactory) %dir %{factory_base}
+%attr(-, gfactory, gfactory) %dir %{factory_base}/client-proxies
+%attr(-, gfactory, gfactory) %dir %{factory_base}/server-credentials
+%attr(0600, gfactory, gfactory) %{factory_base}/server-credentials/jwt_secret.key
+%attr(-, gfactory, gfactory) %dir %{factory_web_dir}
+%attr(-, gfactory, gfactory) %dir %{factory_web_base}
+%attr(-, gfactory, gfactory) %dir %{factory_base}/creation
+%attr(-, gfactory, gfactory) %dir %{factory_dir}
 %attr(-, gfactory, gfactory) %dir %{factory_condor_dir}
 %attr(-, gfactory, gfactory) %dir %{_localstatedir}/log/gwms-factory
 %attr(-, gfactory, gfactory) %dir %{_localstatedir}/log/gwms-factory/client
@@ -952,12 +928,8 @@ rm -rf $RPM_BUILD_ROOT
 %{python3_sitelib}/glideinwms/creation/templates/factory_initd_startup_template
 %{python3_sitelib}/glideinwms/creation/reconfig_glidein
 %{python3_sitelib}/glideinwms/factory
-%if 0%{?rhel} >= 7
 %{_sbindir}/gwms-factory
 %{systemddir}/gwms-factory.service
-%else
-%{_initrddir}/gwms-factory
-%endif
 %attr(-, gfactory, gfactory) %dir %{_sysconfdir}/gwms-factory
 %attr(-, gfactory, gfactory) %dir %{_sysconfdir}/gwms-factory/plugin.d
 %attr(-, gfactory, gfactory) %dir %{_sysconfdir}/gwms-factory/hooks.reconfig.pre
@@ -1016,16 +988,10 @@ rm -rf $RPM_BUILD_ROOT
 %{python3_sitelib}/glideinwms/creation/templates/frontend_initd_startup_template
 %{python3_sitelib}/glideinwms/creation/reconfig_frontend
 %defattr(-,frontend,frontend,-)
-%if 0%{?rhel} >= 7
 %{_sbindir}/gwms-frontend
 %attr(0644, root, root) %{systemddir}/gwms-frontend.service
 %attr(0644, root, root) %{systemddir}/gwms-renew-proxies.service
 %attr(0644, root, root) %{systemddir}/gwms-renew-proxies.timer
-%else
-%{_initrddir}/gwms-frontend
-%{_initrddir}/gwms-renew-proxies
-%attr(0644, root, root) %{_sysconfdir}/cron.d/gwms-renew-proxies
-%endif
 %attr(-, frontend, glidein) %dir %{_sysconfdir}/gwms-frontend
 %attr(-, frontend, glidein) %dir %{_sysconfdir}/gwms-frontend/hooks.reconfig.pre
 %attr(-, frontend, glidein) %dir %{_sysconfdir}/gwms-frontend/hooks.reconfig.post
@@ -1139,6 +1105,11 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Apr 9 2026 Marco Mambelli <marcom@fnal.gov> - 3.10.18
+- Glideinwms v3.10.18
+- Release Notes: http://glideinwms.fnal.gov/doc.v3_10_18/history.html
+- Release candidates 3.10.18-01.rc1 to 3.10.18-02.rc2
+
 * Thu Nov 20 2025 Marco Mambelli <marcom@fnal.gov> - 3.10.17
 - Glideinwms v3.10.17
 - Release Notes: http://glideinwms.fnal.gov/doc.v3_10_17/history.html
