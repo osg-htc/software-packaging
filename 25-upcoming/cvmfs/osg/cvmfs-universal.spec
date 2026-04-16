@@ -348,7 +348,7 @@ A containerd snapshotter inspired by StarGZ that gives instant container startup
 
 %prep
 %setup -q
-%autopatch
+%patch0 -p 1
 
 %if 0%{?selinux_cvmfs}
 mkdir SELinux
