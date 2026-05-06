@@ -23,7 +23,7 @@
 # For Release Candidate builds, check with Software team on release string
 # ------------------------------------------------------------------------------
 %global version 3.11.4
-%global release 0.2.rc2
+%global release 0.3.rc3
 
 %global frontend_xml frontend.xml
 %global factory_xml glideinWMS.xml
@@ -438,6 +438,8 @@ rm -rf $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/logserver
 # after that, we dont package these, so deleting them here
 rm -f $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/creation/templates/factory_initd_startup_template_sl7
 rm -f $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/creation/templates/frontend_initd_startup_template_sl7
+rm -f $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/creation/templates/factory_initd_startup_template_new
+rm -f $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/creation/templates/frontend_initd_startup_template_new
 rm -f $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/creation/templates/gwms-renew-proxies.cron
 rm -f $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/creation/templates/gwms-renew-proxies.init
 rm -f $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/creation/templates/gwms-renew-proxies.service
@@ -1028,7 +1030,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(664,root,glidein,775)
 %{web_dir}/monitor
 %{web_dir}/stage
-%{web_base}/factoryRRDBrowse.html
+#%{web_base}/factoryRRDBrowse.html
 
 %files httpd
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/gwms-hardening.conf
@@ -1095,15 +1097,15 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Mon Apr 13 2026 Marco Mambelli <marcom@fnal.gov> - 3.11.4
+* Wed May 6 2026 Marco Mambelli <marcom@fnal.gov> - 3.11.4
 - Glideinwms v3.11.4
 - Release Notes: http://glideinwms.fnal.gov/doc.v3_11_4/history.html
-- Release candidates 3.11.4-01.rc1 to 3.11.4-02.rc2
+- Release candidates 3.11.4-01.rc1 to 3.11.4-03.rc3
 
-* Fri Apr 10 2026 Marco Mambelli <marcom@fnal.gov> - 3.10.18
+* Fri Apr 17 2026 Marco Mambelli <marcom@fnal.gov> - 3.10.18
 - Glideinwms v3.10.18
 - Release Notes: http://glideinwms.fnal.gov/doc.v3_10_18/history.html
-- Release candidates 3.10.18-01.rc1 to 3.10.18-03.rc3
+- Release candidates 3.10.18-01.rc1 to 3.10.18-04.rc4
 
 * Fri Jan 30 2026 Marco Mambelli <marcom@fnal.gov> - 3.11.3
 - Glideinwms v3.11.3
