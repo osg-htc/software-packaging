@@ -41,7 +41,7 @@ Requires:       %{name} = %{version}-%{release}
 
 
 %prep
-%setup
+%setup -n %{name}-%{version}-2
 
 %build
 make
