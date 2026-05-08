@@ -23,7 +23,7 @@
 # For Release Candidate builds, check with Software team on release string
 # ------------------------------------------------------------------------------
 %global version 3.11.4
-%global release 0.3.rc3
+%global release 1
 
 %global frontend_xml frontend.xml
 %global factory_xml glideinWMS.xml
