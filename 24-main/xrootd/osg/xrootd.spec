@@ -69,7 +69,7 @@ Source1:   xrootd-%{compat_version}.tar.gz
 # PelicanPlatform/xrootd #1 (xrootd/xrootd #1868):
 Patch1: 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
 # PelicanPlatform/xrootd #6 (xrootd/xrootd #2397):
-Patch2: 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~84e535c.patch
+Patch2: 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~def6724.patch
 # PelicanPlatform/xrootd #25 (no upstream)
 Patch3: 0003-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
 # PelicanPlatform/xrootd #32 (xrootd/xrootd #2472)
@@ -964,7 +964,7 @@ fi
 - Update to XRootD 5.9.3 (SOFTWARE-6343)
     - Patches kept:
         - 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
-        - 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~d8842b6.patch -> 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~84e535c.patch
+        - 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~d8842b6.patch -> 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~def6724.patch
         - 0003-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
         - 0004-32-Enable-write-through-mode-for-cache~330eac1.patch
         - 0005-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
