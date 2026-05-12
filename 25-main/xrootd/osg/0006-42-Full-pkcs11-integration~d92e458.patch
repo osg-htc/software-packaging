@@ -1,7 +1,7 @@
-From e8010ef89669d83fe4d8c84eb4e464e064279d13 Mon Sep 17 00:00:00 2001
+From 1f30713bf7570515c6e5f35a85712843170fea9c Mon Sep 17 00:00:00 2001
 From: Howard Zhong <61568048+h2zh@users.noreply.github.com>
 Date: Thu, 29 Jan 2026 11:31:56 -0600
-Subject: [PATCH 7/8] [#42] Full pkcs11 integration
+Subject: [PATCH 6/7] [#42] Full pkcs11 integration
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
