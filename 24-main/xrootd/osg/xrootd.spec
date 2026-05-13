@@ -70,15 +70,15 @@ Source1:   xrootd-%{compat_version}.tar.gz
 Patch1: 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
 # PelicanPlatform/xrootd #6 (xrootd/xrootd #2397):
 Patch2: 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~def6724.patch
-# PelicanPlatform/xrootd #25 (no upstream)
+# PelicanPlatform/xrootd #25 (xrootd/xrootd #2782):
 Patch3: 0003-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
-# PelicanPlatform/xrootd #32 (xrootd/xrootd #2472)
+# PelicanPlatform/xrootd #32 (xrootd/xrootd #2472):
 Patch4: 0004-32-Enable-write-through-mode-for-cache~330eac1.patch
-# PelicanPlatform/xrootd #34 (no upstream)
+# PelicanPlatform/xrootd #34 (no upstream):
 Patch5: 0005-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
-# PelicanPlatform/xrootd #44 (xrootd/xrootd #2576)
+# PelicanPlatform/xrootd #44 (xrootd/xrootd #2576):
 Patch6: 0006-42-Full-pkcs11-integration~d92e458.patch
-# PelicanPlatform/xrootd #48 (no upstream)
+# PelicanPlatform/xrootd #48 (no upstream):
 Patch7: 0007-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 
 BuildRequires:	cmake
