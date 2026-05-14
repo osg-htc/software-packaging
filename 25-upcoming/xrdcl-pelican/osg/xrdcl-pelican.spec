@@ -1,7 +1,7 @@
 
 Name: xrdcl-pelican
 Version: 1.6.2
-Release: 1.1%{?dist}
+Release: 1.2%{?dist}
 Summary: A Pelican-specific backend for the XRootD client
 
 Group: System Environment/Daemons
@@ -11,6 +11,8 @@ URL: https://github.com/pelicanplatform/xrdcl-pelican
 # git archive v%%{version} --prefix=xrdcl-pelican-%%{version}/ | gzip -7 > ~/rpmbuild/SOURCES/xrdcl-pelican-%%{version}.tar.gz
 Source0: %{name}-%{version}.tar.gz
 Source1: tinyxml2-10.0.0.tar.gz
+
+Patch0: drop-XrdClS3.patch
 
 %define xrootd_current_major 6
 %define xrootd_next_major 7
@@ -56,7 +58,7 @@ Requires: xrootd-client <  1:%{xrootd_next_major}.0.0-1
 %{summary}
 
 %prep
-%setup -q
+%autosetup -p1
 
 %build
 %if 0%{?rhel} == 8
@@ -77,14 +79,13 @@ make install DESTDIR=$RPM_BUILD_ROOT
 %files
 %{_libdir}/libXrdClCurl-*.so
 %{_libdir}/libXrdClPelican-*.so
-%{_libdir}/libXrdClS3-*.so
 %{_sysconfdir}/xrootd/client.plugins.d/curl-plugin.conf
 %{_sysconfdir}/xrootd/client.plugins.d/pelican-plugin.conf
-%{_sysconfdir}/xrootd/client.plugins.d/s3-plugin.conf
 
 %changelog
-* Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1.6.2-1.1.osg25up
+* Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1.6.2-1.2.osg25up
 - Build against XRootD 6.0.1 (SOFTWARE-6329)
+- Drop libXrdClS3 to avoid conflict with XRootD 6.0.1
 
 * Tue Mar 10 2026 Brian Bockelman <bbockelman@morgridge.org> 1.6.2-1
 - Add ability to override cache endpoints via environment variable.

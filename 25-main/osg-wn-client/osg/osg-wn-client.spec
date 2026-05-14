@@ -1,7 +1,7 @@
 Name:      osg-wn-client
 Summary:   OSG Worker-Node Client
 Version:   25
-Release:   3%{?dist}
+Release:   4%{?dist}
 License:   Apache 2.0
 URL:       http://www.opensciencegrid.org
 BuildArch: noarch
@@ -26,7 +26,7 @@ Requires: gfal2
 Requires: python3-gfal2-util
 Requires: gfal2-plugin-http
 Requires: gfal2-plugin-file
-Requires: gfal2-plugin-xrootd
+Recommends: gfal2-plugin-xrootd
 %endif
 
 %description
@@ -49,6 +49,9 @@ EOF
 %config(noreplace) %{_prefix}/etc/globus-user-env.sh
 
 %changelog
+* Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 25-4
+- Weaken gfal2-plugin-xrootd dependency because it conflicts with XRootD 6
+
 * Thu Oct 2 2025 Matt Westphall <westphall@wisc.edu> - 25-3
 - Remove gfal2-plugin requirements for EL10
 
