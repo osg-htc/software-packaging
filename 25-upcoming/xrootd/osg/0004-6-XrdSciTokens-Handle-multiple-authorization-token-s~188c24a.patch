@@ -1,4 +1,4 @@
-From b1e828afcaa5ad98509dee068a78a089fca0f855 Mon Sep 17 00:00:00 2001
+From 2fcd4906fc6d8a0a55e46c4c8f69706b0aa76e43 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Tue, 28 Jan 2025 09:57:02 -0600
 Subject: [PATCH 4/5] [#6] [XrdSciTokens] Handle multiple authorization token
@@ -16,7 +16,7 @@ Fixed conflicts in
  src/XrdMacaroons/XrdMacaroonsAuthz.cc  |   4 +
  src/XrdOuc/XrdOucEnv.cc                |  60 ++-
  src/XrdOuc/XrdOucUtils.cc              |   2 +-
- src/XrdSciTokens/CMakeLists.txt        |  17 +-
+ src/XrdSciTokens/CMakeLists.txt        |  18 +-
  src/XrdSciTokens/README.md             |  11 +
  src/XrdSciTokens/XrdSciTokensAccess.cc | 638 ++++++++++++++-----------
  src/XrdSciTokens/XrdSciTokensAccess.hh | 214 +++++++++
@@ -27,7 +27,7 @@ Fixed conflicts in
  tests/XrdOucTests/XrdOucUtilsTests.cc  |   3 +
  tests/scitokens/CMakeLists.txt         |   9 +
  tests/scitokens/XrdSciTokens.cc        |  73 +++
- 15 files changed, 787 insertions(+), 308 deletions(-)
+ 15 files changed, 788 insertions(+), 308 deletions(-)
  create mode 100644 src/XrdSciTokens/XrdSciTokensAccess.hh
  create mode 100644 tests/XrdOucTests/XrdOucEnvTests.cc
  create mode 100644 tests/scitokens/XrdSciTokens.cc
@@ -163,10 +163,10 @@ index 0f2fd492d..b0007eb6c 100644
  
      regex_t regex;
 diff --git a/src/XrdSciTokens/CMakeLists.txt b/src/XrdSciTokens/CMakeLists.txt
-index 90fb03bdc..936389bff 100644
+index 90fb03bdc..4fbdf83e2 100644
 --- a/src/XrdSciTokens/CMakeLists.txt
 +++ b/src/XrdSciTokens/CMakeLists.txt
-@@ -18,34 +18,43 @@ endif()
+@@ -18,37 +18,47 @@ endif()
  
  set(XrdAccSciTokens XrdAccSciTokens-${PLUGIN_VERSION})
  
@@ -214,6 +214,10 @@ index 90fb03bdc..936389bff 100644
  install(
    TARGETS
      ${XrdAccSciTokens}
++    XrdSciTokensObj
+   LIBRARY
+     DESTINATION ${CMAKE_INSTALL_LIBDIR}
+ )
 diff --git a/src/XrdSciTokens/README.md b/src/XrdSciTokens/README.md
 index 1edecf944..ab47f60e2 100644
 --- a/src/XrdSciTokens/README.md

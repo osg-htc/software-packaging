@@ -21,7 +21,7 @@
 
 Name:		xrootd
 Epoch:		1
-Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.2%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
@@ -47,7 +47,7 @@ Patch2: 0002-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
 # PelicanPlatform/xrootd #44 (xrootd/xrootd #2576):
 Patch3: 0003-42-Full-pkcs11-integration~d92e458.patch
 # PelicanPlatform/xrootd #6 (xrootd/xrootd #2397):
-Patch4: 0004-6-XrdSciTokens-Handle-multiple-authorization-token-s~c7ff4a7.patch
+Patch4: 0004-6-XrdSciTokens-Handle-multiple-authorization-token-s~188c24a.patch
 # PelicanPlatform/xrootd #48 (no upstream):
 Patch5: 0005-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 
@@ -695,6 +695,7 @@ fi
 
 %files scitokens
 %{_libdir}/libXrdAccSciTokens-6.so
+%{_libdir}/libXrdSciTokensObj.so
 %doc src/XrdSciTokens/README.md
 
 
@@ -717,12 +718,12 @@ fi
 
 %changelog
 
-* Tue May 12 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.0.1-1.1
+* Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.0.1-1.2
 - Add OSG/Pelican patches:
     - 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
     - 0002-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
     - 0003-42-Full-pkcs11-integration~d92e458.patch
-    - 0004-6-XrdSciTokens-Handle-multiple-authorization-token-s~c7ff4a7.patch
+    - 0004-6-XrdSciTokens-Handle-multiple-authorization-token-s~188c24a.patch
     - 0005-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 
 * Tue May 05 2026 Guilherme Amadio <amadio@cern.ch> - 1:6.0.1-1
