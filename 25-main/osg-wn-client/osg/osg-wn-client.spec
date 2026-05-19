@@ -50,7 +50,7 @@ EOF
 
 %changelog
 * Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 25-4
-- Weaken gfal2-plugin-xrootd dependency because it conflicts with XRootD 6
+- Weaken gfal2-plugin-xrootd dependency because it conflicts with XRootD 6 (SOFTWARE-6347)
 
 * Thu Oct 2 2025 Matt Westphall <westphall@wisc.edu> - 25-3
 - Remove gfal2-plugin requirements for EL10
