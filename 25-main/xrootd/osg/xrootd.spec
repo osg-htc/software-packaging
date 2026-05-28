@@ -80,6 +80,8 @@ Patch5: 0005-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
 Patch6: 0006-42-Full-pkcs11-integration~d92e458.patch
 # PelicanPlatform/xrootd #48 (no upstream):
 Patch7: 0007-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+# PelicanPlatform/xrootd #51 (xrootd/xrootd #2797):
+Patch8: 0008-51-Fix-double-free-bug-when-reading-macaroon-secret~d78fde2.patch
 
 BuildRequires:	cmake
 BuildRequires:	gcc-c++
@@ -960,6 +962,19 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Thu May 28 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.4-1.1
+- Update to XRootD 5.9.4 (SOFTWARE-6343)
+    - Patches added:
+        - 0008-51-Fix-double-free-bug-when-reading-macaroon-secret~d78fde2.patch
+    - Patches kept:
+        - 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
+        - 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~def6724.patch
+        - 0003-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
+        - 0004-32-Enable-write-through-mode-for-cache~330eac1.patch
+        - 0005-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
+        - 0006-42-Full-pkcs11-integration~d92e458.patch
+        - 0007-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+
 * Tue May 12 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.3-1.1
 - Update to XRootD 5.9.3 (SOFTWARE-6343)
     - Patches kept:
