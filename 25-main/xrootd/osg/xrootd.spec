@@ -51,7 +51,7 @@ License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AN
 URL:		https://xrootd.org
 
 %if !%{with git}
-Version:	5.9.4
+Version:	5.9.5
 Source0:	https://xrootd.web.cern.ch/download/v%{version}/%{name}-%{version}.tar.gz
 %else
 %define git_version %(tar xzf %{_sourcedir}/%{name}.tar.gz -O xrootd/VERSION)
@@ -70,18 +70,14 @@ Source1:   xrootd-%{compat_version}.tar.gz
 Patch1: 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
 # PelicanPlatform/xrootd #6 (xrootd/xrootd #2397):
 Patch2: 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~def6724.patch
-# PelicanPlatform/xrootd #25 (xrootd/xrootd #2782):
-Patch3: 0003-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
 # PelicanPlatform/xrootd #32 (xrootd/xrootd #2472):
-Patch4: 0004-32-Enable-write-through-mode-for-cache~330eac1.patch
+Patch3: 0003-32-Enable-write-through-mode-for-cache~330eac1.patch
 # PelicanPlatform/xrootd #34 (no upstream):
-Patch5: 0005-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
+Patch4: 0004-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
 # PelicanPlatform/xrootd #44 (xrootd/xrootd #2576):
-Patch6: 0006-42-Full-pkcs11-integration~d92e458.patch
+Patch5: 0005-42-Full-pkcs11-integration~d92e458.patch
 # PelicanPlatform/xrootd #48 (no upstream):
-Patch7: 0007-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
-# PelicanPlatform/xrootd #51 (xrootd/xrootd #2797):
-Patch8: 0008-51-Fix-double-free-bug-when-reading-macaroon-secret~d78fde2.patch
+Patch6: 0006-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 
 BuildRequires:	cmake
 BuildRequires:	gcc-c++
@@ -962,6 +958,19 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Fri May 29 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.5-1.1
+- Update to XRootD 5.9.5 (SOFTWARE-6343)
+    - Patches kept:
+        - 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
+        - 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~def6724.patch
+        - 0004-32-Enable-write-through-mode-for-cache~330eac1.patch -> 0003-32-Enable-write-through-mode-for-cache~330eac1.patch
+        - 0005-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch -> 0004-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
+        - 0006-42-Full-pkcs11-integration~d92e458.patch -> 0005-42-Full-pkcs11-integration~d92e458.patch
+        - 0007-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch -> 0006-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+    - Patches dropped:
+        - 0003-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
+        - 0008-51-Fix-double-free-bug-when-reading-macaroon-secret~d78fde2.patch
+
 * Thu May 28 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.4-1.1
 - Update to XRootD 5.9.4 (SOFTWARE-6343)
     - Patches added:
