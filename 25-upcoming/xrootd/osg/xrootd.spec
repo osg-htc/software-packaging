@@ -21,14 +21,14 @@
 
 Name:		xrootd
 Epoch:		1
-Release:	1.2%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
 URL:		https://xrootd.org
 
 %if !%{with git}
-Version:	6.0.1
+Version:	6.0.3
 Source0:	https://xrootd.web.cern.ch/download/v%{version}/%{name}-%{version}.tar.gz
 %else
 %define git_version %(tar xzf %{_sourcedir}/%{name}.tar.gz -O xrootd/VERSION)
@@ -42,14 +42,12 @@ Source0:	%{name}.tar.gz
 
 # PelicanPlatform/xrootd #1 (xrootd/xrootd #1868):
 Patch1: 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
-# PelicanPlatform/xrootd #25 (xrootd/xrootd #2782):
-Patch2: 0002-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
 # PelicanPlatform/xrootd #44 (xrootd/xrootd #2576):
-Patch3: 0003-42-Full-pkcs11-integration~d92e458.patch
+Patch2: 0002-42-Full-pkcs11-integration~d92e458.patch
 # PelicanPlatform/xrootd #6 (xrootd/xrootd #2397):
-Patch4: 0004-6-XrdSciTokens-Handle-multiple-authorization-token-s~188c24a.patch
+Patch3: 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~188c24a.patch
 # PelicanPlatform/xrootd #48 (no upstream):
-Patch5: 0005-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+Patch4: 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 
 BuildRequires:	cmake
 BuildRequires:	gcc-c++
@@ -717,6 +715,27 @@ fi
 %endif
 
 %changelog
+* Wed Jun 03 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.0.3-1.1
+- Update to XRootD 6.0.3 and add OSG/Pelican patches (SOFTWARE-6329)
+    - Patches kept:
+        - 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
+        - 0003-42-Full-pkcs11-integration~d92e458.patch -> 0002-42-Full-pkcs11-integration~d92e458.patch
+        - 0004-6-XrdSciTokens-Handle-multiple-authorization-token-s~188c24a.patch -> 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~188c24a.patch
+        - 0005-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch -> 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+    - Patches dropped:
+        - 0002-25-XRootD-s-xml-response-for-PROPFIND-will-now-inclu~aacf631.patch
+
+* Mon Jun 01 2026 Guilherme Amadio <amadio@cern.ch> - 1:6.0.3-1
+- XRootD 6.0.3
+
+* Thu May 28 2026 Guilherme Amadio <amadio@cern.ch> - 1:5.9.5-1
+- XRootD 5.9.5
+
+* Tue May 19 2026 Guilherme Amadio <amadio@cern.ch> - 1:6.0.2-1
+- XRootD 6.0.2
+
+* Wed May 13 2026 Guilherme Amadio <amadio@cern.ch> - 1:5.9.4-1
+- XRootD 5.9.4
 
 * Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.0.1-1.2
 - Add OSG/Pelican patches:

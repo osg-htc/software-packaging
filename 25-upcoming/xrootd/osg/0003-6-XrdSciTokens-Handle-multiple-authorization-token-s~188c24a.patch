@@ -1,7 +1,7 @@
-From 2fcd4906fc6d8a0a55e46c4c8f69706b0aa76e43 Mon Sep 17 00:00:00 2001
+From 80b0b79b0c86ef8b80533a4faba46a5dbfbe2320 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Tue, 28 Jan 2025 09:57:02 -0600
-Subject: [PATCH 4/5] [#6] [XrdSciTokens] Handle multiple authorization token
+Subject: [PATCH 3/4] [#6] [XrdSciTokens] Handle multiple authorization token
  setups
 
 Cherry-picked from 63b2f49077c0eb7048813bcdfb02a0075cd3e0df
@@ -54,10 +54,10 @@ index 8cdb59a81..b746f9f0f 100644
 \ No newline at end of file
 +}
 diff --git a/src/XrdMacaroons/XrdMacaroonsAuthz.cc b/src/XrdMacaroons/XrdMacaroonsAuthz.cc
-index 19ef4436b..70ebc94e9 100644
+index 8d3a262ca..14280c4fb 100644
 --- a/src/XrdMacaroons/XrdMacaroonsAuthz.cc
 +++ b/src/XrdMacaroons/XrdMacaroonsAuthz.cc
-@@ -180,6 +180,10 @@ Authz::Access(const XrdSecEntity *Entity, const char *path,
+@@ -173,6 +173,10 @@ Authz::Access(const XrdSecEntity *Entity, const char *path,
  
      const char *authz = env ? env->Get("authz") : nullptr;
      if (authz && !strncmp(authz, "Bearer%20", 9))
@@ -1535,5 +1535,5 @@ index 000000000..9f85263c4
 +}
 \ No newline at end of file
 -- 
-2.47.3
+2.52.0
 
