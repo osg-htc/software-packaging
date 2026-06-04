@@ -1,5 +1,5 @@
 Name:		xrootd-s3-http
-Version:        0.6.7
+Version:        0.6.8
 Release:        1.1%{?dist}
 Summary:        S3/HTTP/Globus filesystem plugins for xrootd
 
@@ -59,6 +59,9 @@ rm %{buildroot}%{_libdir}/libXrdPelicanHttpCore.so
 %license LICENSE
 
 %changelog
+* Thu Jun 04 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.8-1.1.osg25up
+- Remove s3_Statistics log spam
+
 * Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.7-1.1.osg25up
 - Build against XRootD 6.0.1 (SOFTWARE-6329)
 
