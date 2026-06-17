@@ -44,7 +44,7 @@
 #-------------------------------------------------------------------------------
 Name:		xrootd
 Epoch:		1
-Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.2%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
@@ -82,6 +82,8 @@ Patch6: 0006-37-Add-TPC-worker-pool~08d3d9a.patch
 Patch7: 0007-42-Full-pkcs11-integration~d92e458.patch
 # PelicanPlatform/xrootd #48 (no upstream)
 Patch8: 0008-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+# xrootd/xrootd #2825 (no PelicanPlatform)
+Patch9: 2825-orphaned-cinfo-or-data.patch
 
 BuildRequires:	cmake
 BuildRequires:	gcc-c++
@@ -962,6 +964,9 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Wed Jun 17 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.2-1.2
+- Add 2825-orphaned-cinfo-or-data.patch (SOFTWARE-6361)
+
 * Tue Mar 31 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.2-1.1
 - Update to XRootD 5.9.2 (SOFTWARE-6324)
     - Patches added:
