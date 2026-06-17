@@ -1,7 +1,7 @@
-From ff900d82ae2fd9b536a28a4a1f27306d143f714a Mon Sep 17 00:00:00 2001
+From ec892471b5be7b2abc6052fe2137b8447d555869 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Sat, 12 Jul 2025 07:20:21 -0500
-Subject: [PATCH 4/6] [#34] Add S3 as a permitted proxy protocol
+Subject: [PATCH 5/8] [#34] Add S3 as a permitted proxy protocol
 
 ---
  src/XrdApps/XrdCpConfig.cc | 2 ++
@@ -11,7 +11,7 @@ Subject: [PATCH 4/6] [#34] Add S3 as a permitted proxy protocol
  4 files changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/src/XrdApps/XrdCpConfig.cc b/src/XrdApps/XrdCpConfig.cc
-index ffb604937..ba7e425a4 100644
+index 7f8e8702e..b4213c31c 100644
 --- a/src/XrdApps/XrdCpConfig.cc
 +++ b/src/XrdApps/XrdCpConfig.cc
 @@ -386,6 +386,7 @@ do{while(optind < Argc && Legacy(optind)) {}
@@ -22,7 +22,7 @@ index ffb604937..ba7e425a4 100644
       &&  (!Want(DoAllowHttp) && ((dstFile->Protocol == XrdCpFile::isHttp) ||
                                   (dstFile->Protocol == XrdCpFile::isHttps))))
          {FMSG(dstFile->ProtName <<"file protocol is not supported.", 22)}
-@@ -908,6 +909,7 @@ void XrdCpConfig::ProcFile(const char *fname)
+@@ -905,6 +906,7 @@ void XrdCpConfig::ProcFile(const char *fname)
      else if (!((pFile->Protocol == XrdCpFile::isXroot) ||
                 (pFile->Protocol == XrdCpFile::isXroots) ||
                 (pFile->Protocol == XrdCpFile::isPelican) ||
@@ -71,5 +71,5 @@ index 42f37534f..1e3241946 100644
     int pTNum = sizeof(pTab)/sizeof(pEnt);
     int xrBeg = 2;
 -- 
-2.52.0
+2.47.3
 

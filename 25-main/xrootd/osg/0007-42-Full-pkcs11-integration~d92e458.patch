@@ -1,7 +1,7 @@
-From ce73a48ce925c0056054d973334bd5bbc00b40cf Mon Sep 17 00:00:00 2001
+From e8010ef89669d83fe4d8c84eb4e464e064279d13 Mon Sep 17 00:00:00 2001
 From: Howard Zhong <61568048+h2zh@users.noreply.github.com>
 Date: Thu, 29 Jan 2026 11:31:56 -0600
-Subject: [PATCH 5/6] [#42] Full pkcs11 integration
+Subject: [PATCH 7/8] [#42] Full pkcs11 integration
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -346,5 +346,5 @@ index 612374338..6ee2dc05a 100644
  
  // Make sure the key and certificate file match.
 -- 
-2.52.0
+2.47.3
 
