@@ -80,6 +80,9 @@ Patch5: 0005-42-Full-pkcs11-integration~d92e458.patch
 Patch6: 0006-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 # xrootd/xrootd #2825 (no PelicanPlatform)
 Patch7: 2825-orphaned-cinfo-or-data.patch
+# upstream 5ce34c56d3a2e0fe731533c3d30fde321ff44efe
+Patch8: macaroons-caveat.diff
+
 
 BuildRequires:	cmake
 BuildRequires:	gcc-c++
@@ -962,6 +965,7 @@ fi
 %changelog
 * Fri Jun 19 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.5-1.2
 - Add 2825-orphaned-cinfo-or-data.patch (SOFTWARE-6361)
+- Add macaroons-caveat.diff (SOFTWARE-6343)
 
 * Fri May 29 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.5-1.1
 - Update to XRootD 5.9.5 (SOFTWARE-6343)
