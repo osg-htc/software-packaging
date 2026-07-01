@@ -1,4 +1,4 @@
-From d42d0de898fe40bb6c78fd9c9fd6446dda667e1c Mon Sep 17 00:00:00 2001
+From 811c14e1ace134305462eca0468c18e40f101730 Mon Sep 17 00:00:00 2001
 From: Howard Zhong <hzhong45@wisc.edu>
 Date: Wed, 27 Aug 2025 19:47:41 +0000
 Subject: [PATCH 6/6] [#48] Fix XRootD local build error caused by

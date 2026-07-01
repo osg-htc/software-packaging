@@ -1,4 +1,4 @@
-From ae07d3d1868af467b87691327942b854f154ed81 Mon Sep 17 00:00:00 2001
+From 0f9f848a1bc764b7762ecd1ec24b5ee827ba95cd Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Tue, 28 Jan 2025 09:57:02 -0600
 Subject: [PATCH 2/6] [#6] [XrdSciTokens] Handle multiple authorization token
@@ -47,7 +47,7 @@ index 6f5f3f603..8a09100f0 100644
 \ No newline at end of file
 +}
 diff --git a/src/XrdMacaroons/XrdMacaroonsAuthz.cc b/src/XrdMacaroons/XrdMacaroonsAuthz.cc
-index 0ffe3bcd5..b08a2fa65 100644
+index c5017f4bc..f61353baa 100644
 --- a/src/XrdMacaroons/XrdMacaroonsAuthz.cc
 +++ b/src/XrdMacaroons/XrdMacaroonsAuthz.cc
 @@ -167,6 +167,10 @@ Authz::Access(const XrdSecEntity *Entity, const char *path,

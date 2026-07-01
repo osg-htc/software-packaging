@@ -1,4 +1,4 @@
-From ff900d82ae2fd9b536a28a4a1f27306d143f714a Mon Sep 17 00:00:00 2001
+From 5f31f2d6ced065d1d8ef8ea899ea9cc3a6600215 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Sat, 12 Jul 2025 07:20:21 -0500
 Subject: [PATCH 4/6] [#34] Add S3 as a permitted proxy protocol

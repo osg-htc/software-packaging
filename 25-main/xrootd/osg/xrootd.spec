@@ -44,14 +44,14 @@
 #-------------------------------------------------------------------------------
 Name:		xrootd
 Epoch:		1
-Release:	1.3%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
 URL:		https://xrootd.org
 
 %if !%{with git}
-Version:	5.9.5
+Version:	5.9.6
 Source0:	https://xrootd.web.cern.ch/download/v%{version}/%{name}-%{version}.tar.gz
 %else
 %define git_version %(tar xzf %{_sourcedir}/%{name}.tar.gz -O xrootd/VERSION)
@@ -80,8 +80,6 @@ Patch5: 0005-42-Full-pkcs11-integration~d92e458.patch
 Patch6: 0006-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 ## xrootd/xrootd #2825 (no PelicanPlatform)
 #Patch7: 2825-orphaned-cinfo-or-data.patch
-# upstream 5ce34c56d3a2e0fe731533c3d30fde321ff44efe
-Patch8: macaroons-caveat.diff
 
 
 BuildRequires:	cmake
@@ -963,6 +961,17 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Wed Jul 01 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.6-1.1
+- Update to XRootD 5.9.6 (SOFTWARE-6343)
+    - Patches kept:
+        - 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
+        - 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~def6724.patch
+        - 0003-32-Enable-write-through-mode-for-cache~330eac1.patch
+        - 0004-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
+        - 0005-42-Full-pkcs11-integration~d92e458.patch
+    - Patches dropped:
+        - macaroons-caveat.diff
+
 * Fri Jun 19 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.5-1.3
 # - Add 2825-orphaned-cinfo-or-data.patch (SOFTWARE-6361)
 - Add macaroons-caveat.diff (SOFTWARE-6343)
