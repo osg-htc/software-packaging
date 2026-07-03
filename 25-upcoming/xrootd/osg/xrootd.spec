@@ -104,6 +104,7 @@ BuildRequires:	attr
 BuildRequires:	coreutils
 BuildRequires:	curl
 BuildRequires:	gtest-devel
+BuildRequires:	jq
 BuildRequires:	krb5-server
 BuildRequires:	krb5-workstation
 BuildRequires:	openssl
@@ -633,6 +634,7 @@ fi
 %{_libdir}/libXrdOfsPrepGPI-6.so
 %{_libdir}/libXrdOssArc-6.so
 %{_libdir}/libXrdOssCsi-6.so
+%{_libdir}/libXrdOssMirage-6.so
 %{_libdir}/libXrdOssSIgpfsT-6.so
 %{_libdir}/libXrdOssStats-6.so
 %{_libdir}/libXrdPfc-6.so
@@ -722,6 +724,12 @@ fi
         - 0002-42-Full-pkcs11-integration~d92e458.patch
         - 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~188c24a.patch -> 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~976e1d8.patch
         - 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+
+* Fri Jun 19 2026 Guilherme Amadio <amadio@cern.ch> - 1:6.1.0-1
+- XRootD 6.1.0
+
+* Fri Jun 19 2026 Guilherme Amadio <amadio@cern.ch> - 1:5.9.6-1
+- XRootD 5.9.6
 
 * Wed Jun 03 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.0.3-1.1
 - Update to XRootD 6.0.3 and add OSG/Pelican patches (SOFTWARE-6329)
