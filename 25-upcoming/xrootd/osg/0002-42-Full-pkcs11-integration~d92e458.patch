@@ -1,4 +1,4 @@
-From 9b732f9a61cd8bc46f1ea57239678a2d1f4ac7aa Mon Sep 17 00:00:00 2001
+From a4253da8ba9f38e258bca97666010d52a714fe8a Mon Sep 17 00:00:00 2001
 From: Howard Zhong <61568048+h2zh@users.noreply.github.com>
 Date: Thu, 29 Jan 2026 11:31:56 -0600
 Subject: [PATCH 2/4] [#42] Full pkcs11 integration

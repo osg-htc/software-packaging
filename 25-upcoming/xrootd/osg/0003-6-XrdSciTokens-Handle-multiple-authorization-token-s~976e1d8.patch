@@ -1,16 +1,14 @@
-From 80b0b79b0c86ef8b80533a4faba46a5dbfbe2320 Mon Sep 17 00:00:00 2001
+From 72a999ac361774632ff4c96cb0227efcdf3e7692 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Tue, 28 Jan 2025 09:57:02 -0600
 Subject: [PATCH 3/4] [#6] [XrdSciTokens] Handle multiple authorization token
  setups
 
-Cherry-picked from 63b2f49077c0eb7048813bcdfb02a0075cd3e0df
+Cherry-picked from 80b0b79b0c86ef8b80533a4faba46a5dbfbe2320
 
 Fixed conflicts in
 
-	src/XrdHttpTpc/XrdHttpTpcUtils.cc
-	src/XrdSciTokens/XrdSciTokensAccess.cc
-	tests/XRootD/scitokens.sh
+ 	src/XrdOuc/XrdOucEnv.cc
 ---
  src/XrdHttpTpc/XrdHttpTpcUtils.cc      |   5 +-
  src/XrdMacaroons/XrdMacaroonsAuthz.cc  |   4 +
@@ -54,7 +52,7 @@ index 8cdb59a81..b746f9f0f 100644
 \ No newline at end of file
 +}
 diff --git a/src/XrdMacaroons/XrdMacaroonsAuthz.cc b/src/XrdMacaroons/XrdMacaroonsAuthz.cc
-index 8d3a262ca..14280c4fb 100644
+index f4de9430f..cdce04ffa 100644
 --- a/src/XrdMacaroons/XrdMacaroonsAuthz.cc
 +++ b/src/XrdMacaroons/XrdMacaroonsAuthz.cc
 @@ -173,6 +173,10 @@ Authz::Access(const XrdSecEntity *Entity, const char *path,
@@ -69,7 +67,7 @@ index 8d3a262ca..14280c4fb 100644
          authz += 9;
      }
 diff --git a/src/XrdOuc/XrdOucEnv.cc b/src/XrdOuc/XrdOucEnv.cc
-index 704049a0d..72fd9df6b 100644
+index b3e3a628f..adc4d2c53 100644
 --- a/src/XrdOuc/XrdOucEnv.cc
 +++ b/src/XrdOuc/XrdOucEnv.cc
 @@ -102,37 +102,55 @@ char *XrdOucEnv::Delimit(char *value)
@@ -87,7 +85,7 @@ index 704049a0d..72fd9df6b 100644
  //
 -   if ((authInfo = strstr(global_env, "authz=")) == 0)
 +   if ((authInfo = strstr(global_env, "authz=")) == 0 && (accessAuthInfo = strstr(global_env, "access_token=")) == 0)
-       {Put(TIDY_ENVVAR, "");
+       {Put(TIDY_ENVVAR, "\n");
         return;
        }
  
@@ -147,13 +145,13 @@ index 704049a0d..72fd9df6b 100644
 +           }
 +       }
  }
-  
+ 
  /******************************************************************************/
 diff --git a/src/XrdOuc/XrdOucUtils.cc b/src/XrdOuc/XrdOucUtils.cc
-index 0f2fd492d..b0007eb6c 100644
+index 297db122f..30b538a03 100644
 --- a/src/XrdOuc/XrdOucUtils.cc
 +++ b/src/XrdOuc/XrdOucUtils.cc
-@@ -1592,7 +1592,7 @@ std::string obfuscateAuth(const std::string& input)
+@@ -1611,7 +1611,7 @@ std::string obfuscateAuth(const std::string& input)
  {
    static const regex_t auth_regex = []() {
      constexpr char re[] =
@@ -1414,10 +1412,10 @@ index 000000000..ac8fe6da6
 +    }	    
 +}
 diff --git a/tests/XrdOucTests/XrdOucUtilsTests.cc b/tests/XrdOucTests/XrdOucUtilsTests.cc
-index 6c4388b9a..6caadb622 100644
+index be84e7293..7de90517f 100644
 --- a/tests/XrdOucTests/XrdOucUtilsTests.cc
 +++ b/tests/XrdOucTests/XrdOucUtilsTests.cc
-@@ -101,13 +101,16 @@ static const std::string plain_urls[] = {
+@@ -102,13 +102,16 @@ static const std::string plain_urls[] = {
  
  static const std::string authz_strings[] = {
    "authz=REDACTED",

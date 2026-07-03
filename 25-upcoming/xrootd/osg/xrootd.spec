@@ -28,7 +28,7 @@ License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AN
 URL:		https://xrootd.org
 
 %if !%{with git}
-Version:	6.0.3
+Version:	6.1.0
 Source0:	https://xrootd.web.cern.ch/download/v%{version}/%{name}-%{version}.tar.gz
 %else
 %define git_version %(tar xzf %{_sourcedir}/%{name}.tar.gz -O xrootd/VERSION)
@@ -45,7 +45,7 @@ Patch1: 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
 # PelicanPlatform/xrootd #44 (xrootd/xrootd #2576):
 Patch2: 0002-42-Full-pkcs11-integration~d92e458.patch
 # PelicanPlatform/xrootd #6 (xrootd/xrootd #2397):
-Patch3: 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~188c24a.patch
+Patch3: 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~976e1d8.patch
 # PelicanPlatform/xrootd #48 (no upstream):
 Patch4: 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 
@@ -715,6 +715,14 @@ fi
 %endif
 
 %changelog
+* Fri Jul 03 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.1.0-1.1
+- Update to XRootD 6.1.0 (SOFTWARE-6329) and add OSG/Pelican patches
+    - Patches kept:
+        - 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
+        - 0002-42-Full-pkcs11-integration~d92e458.patch
+        - 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~188c24a.patch -> 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~976e1d8.patch
+        - 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+
 * Wed Jun 03 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.0.3-1.1
 - Update to XRootD 6.0.3 and add OSG/Pelican patches (SOFTWARE-6329)
     - Patches kept:
