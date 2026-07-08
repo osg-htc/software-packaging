@@ -1,0 +1,47 @@
+From 0e27d3d3ddd8c604faf809e71912d9493e5ca32b Mon Sep 17 00:00:00 2001
+From: Howard Zhong <hzhong45@wisc.edu>
+Date: Tue, 7 Jul 2026 17:23:32 +0000
+Subject: [PATCH 7/7] [#55] [XrdPfc] Backstop crash from negative dir count in
+ purge check
+
+A negative root directory count, converted to size_t, makes
+vector::reserve() throw std::length_error and abort the daemon from
+the purge thread (xrootd/xrootd#2808). Clamp n_calc_dirs to at least
+1; reserve() is only a capacity hint and fill_pshot_vec_children()
+walks the actual tree, so purging proceeds correctly.
+
+This is only a backstop. The count drifts negative because the
+accounting is asymmetric: directory removals are counted whenever the
+empty-dir sweep unlinks a dir and erases its DirState node, but
+directory creations are only counted for cache-miss opens
+(!m_existing_file). A file written to disk out-of-band (e.g. the
+Pelican cache self-test file) re-creates the DirState nodes without
+ever being counted. The real fix should be counting m_NDirectoriesCreated
+whenever a file open has to create DirState nodes in memory,
+regardless of m_existing_file. (m_NFilesCreated must stay gated on
+!m_existing_file to avoid over-counting cache hits.) Having said that,
+upstream XRootD developers may have more to consider.
+---
+ src/XrdPfc/XrdPfcResourceMonitor.cc | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/src/XrdPfc/XrdPfcResourceMonitor.cc b/src/XrdPfc/XrdPfcResourceMonitor.cc
+index f51119b80..bd3df9b4f 100644
+--- a/src/XrdPfc/XrdPfcResourceMonitor.cc
++++ b/src/XrdPfc/XrdPfcResourceMonitor.cc
+@@ -748,7 +748,11 @@ void ResourceMonitor::perform_purge_check(bool purge_cold_files, int tl)
+    //     deletion -- eg, by comparing stat time of cinfo + doing the is-active / is-purge-protected.
+ 
+    const DirState &root_ds = *m_fs_state.get_root();
+-   const int n_calc_dirs  = 1 + root_ds.m_here_usage.m_NDirectories + root_ds.m_recursive_subdir_usage.m_NDirectories;
++   // Guard against a negative directory count (accounting drift, see
++   // xrootd/xrootd#2808): reserve() with a negative int converted to size_t
++   // throws std::length_error and aborts the daemon. reserve() is only a
++   // capacity hint; fill_pshot_vec_children() walks the actual tree.
++   const int n_calc_dirs  = std::max(1, 1 + root_ds.m_here_usage.m_NDirectories + root_ds.m_recursive_subdir_usage.m_NDirectories);
+ #ifdef RM_DEBUG
+    const int n_pshot_dirs = root_ds.count_dirs_to_level(9999);
+    dprintf("purge dir count recursive=%d vs from_usage=%d\n", n_pshot_dirs, n_calc_dirs);
+-- 
+2.52.0
+
