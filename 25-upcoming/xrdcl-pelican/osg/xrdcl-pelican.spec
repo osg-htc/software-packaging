@@ -1,21 +1,32 @@
 
 Name: xrdcl-pelican
-Version: 1.6.2
-Release: 1.2%{?dist}
+Version: 1.7.1
+Release: 1.1%{?dist}
 Summary: A Pelican-specific backend for the XRootD client
 
 Group: System Environment/Daemons
-License: BSD
+License: LGPL
 URL: https://github.com/pelicanplatform/xrdcl-pelican
 # Generated from:
 # git archive v%%{version} --prefix=xrdcl-pelican-%%{version}/ | gzip -7 > ~/rpmbuild/SOURCES/xrdcl-pelican-%%{version}.tar.gz
 Source0: %{name}-%{version}.tar.gz
 Source1: tinyxml2-10.0.0.tar.gz
 
-Patch0: drop-XrdClS3.patch
+# Build against XRootD 6 by passing `--with xrootd6` to rpmbuild.  Without it
+# we build against XRootD 5 (the original default).  XRootD 6 ships its own
+# upstreamed XrdClCurl and XrdClS3 plugins; in that mode we only ship the
+# Pelican plugin from this repository.
+%bcond_without xrootd6
 
+%if %{with xrootd6}
 %define xrootd_current_major 6
+%define xrootd_current_minor 0
 %define xrootd_next_major 7
+%else
+%define xrootd_current_major 5
+%define xrootd_current_minor 6
+%define xrootd_next_major 6
+%endif
 
 %if 0%{?rhel} > 8
 %global __cmake_in_source_build 1
@@ -32,6 +43,9 @@ BuildRequires: gcc-c++
 BuildRequires: cmake
 %else
 BuildRequires: cmake3
+%endif
+%if 0%{?rhel} == 7
+BuildRequires: devtoolset-11-toolchain
 %endif
 %if 0%{?rhel} == 8
 BuildRequires: gcc-toolset-11-toolchain
@@ -51,16 +65,19 @@ BuildRequires: nlohmann-json-devel
 BuildRequires: tinyxml2-devel >= 9
 %endif
 
-Requires: xrootd-client >= 1:%{xrootd_current_major}.0.0
+Requires: xrootd-client >= 1:%{xrootd_current_major}.%{xrootd_current_minor}
 Requires: xrootd-client <  1:%{xrootd_next_major}.0.0-1
 
 %description
 %{summary}
 
 %prep
-%autosetup -p1
+%setup -q
 
 %build
+%if 0%{?rhel} == 7
+. /opt/rh/devtoolset-11/enable
+%endif
 %if 0%{?rhel} == 8
 . /opt/rh/gcc-toolset-11/enable
 %endif
@@ -77,12 +94,40 @@ make VERBOSE=1 %{?_smp_mflags}
 make install DESTDIR=$RPM_BUILD_ROOT
 
 %files
-%{_libdir}/libXrdClCurl-*.so
 %{_libdir}/libXrdClPelican-*.so
-%{_sysconfdir}/xrootd/client.plugins.d/curl-plugin.conf
 %{_sysconfdir}/xrootd/client.plugins.d/pelican-plugin.conf
+%if %{without xrootd6}
+# XRootD 6 ships its own XrdClCurl and XrdClS3 plugins upstream; only ship
+# our bundled copies when building against XRootD 5.
+%{_libdir}/libXrdClCurl-*.so
+%{_libdir}/libXrdClS3-*.so
+%{_sysconfdir}/xrootd/client.plugins.d/curl-plugin.conf
+%{_sysconfdir}/xrootd/client.plugins.d/s3-plugin.conf
+%endif
 
 %changelog
+* Wed Jul 08 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1.7.1-1.1.osg25up
+- Build against XRootD 6 (SOFTWARE-6329)
+- Build XrdClS3 again
+
+* Thu Jun 18 2026 Brian Bockelman <bbockelman@morgridge.org> 1.7.1-1
+- Normalize error codes; do not pass through a libcurl error code where errno
+  is expected.
+- On XRootD 6, pass through error messages to the client, not just errno's.
+- Fix handling of relative redirects after a host redirect; clears a reported
+  redirect loop in Pelican.
+
+* Tue Jun 2 2026 Brian Bockelman <bbockelman@morgridge.org> 1.7.0-1
+- Add support for the WLCG bearer token profile for discovering tokens
+  (mainly useful when invoked directly as a client, as opposed to within
+  XCache).
+- Add modest automatic retries for failed transfers if the failures were
+  marked as retryable.
+- Cancel a file's prefetch request when the file is closed or destroyed.
+- Relicense from ASL 2.0 to LGPL to match upstream, allowing backporting
+  bugfixes from XRootD 6.
+- Backport fixes from upstream XRootD 6.
+
 * Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1.6.2-1.2.osg25up
 - Build against XRootD 6.0.1 (SOFTWARE-6329)
 - Drop libXrdClS3 to avoid conflict with XRootD 6.0.1
