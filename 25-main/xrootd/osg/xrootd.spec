@@ -965,7 +965,7 @@ fi
 #-------------------------------------------------------------------------------
 %changelog
 * Wed Jul 08 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.6-1.2
-- Add 0007-55-XrdPfc-Backstop-crash-from-negative-dir-count-in~57916c2.patch
+- Add 0007-55-XrdPfc-Backstop-crash-from-negative-dir-count-in~57916c2.patch (SOFTWARE-6367)
 
 * Wed Jul 01 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.6-1.1
 - Update to XRootD 5.9.6 (SOFTWARE-6343)

@@ -44,7 +44,7 @@
 #-------------------------------------------------------------------------------
 Name:		xrootd
 Epoch:		1
-Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.2%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
@@ -80,6 +80,9 @@ Patch5: 0005-42-Full-pkcs11-integration~d92e458.patch
 Patch6: 0006-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 ## xrootd/xrootd #2825 (no PelicanPlatform)
 #Patch7: 2825-orphaned-cinfo-or-data.patch
+
+# PelicanPlatform/xrootd #55 (no upstream):
+Patch7: 0007-55-XrdPfc-Backstop-crash-from-negative-dir-count-in~57916c2.patch
 
 
 BuildRequires:	cmake
@@ -961,6 +964,9 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Wed Jul 08 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.6-1.2
+- Add 0007-55-XrdPfc-Backstop-crash-from-negative-dir-count-in~57916c2.patch (SOFTWARE-6367)
+
 * Wed Jul 01 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.6-1.1
 - Update to XRootD 5.9.6 (SOFTWARE-6343)
     - Patches kept:
@@ -969,6 +975,7 @@ fi
         - 0003-32-Enable-write-through-mode-for-cache~330eac1.patch
         - 0004-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
         - 0005-42-Full-pkcs11-integration~d92e458.patch
+        - 0006-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
     - Patches dropped:
         - macaroons-caveat.diff
 
