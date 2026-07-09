@@ -1,7 +1,7 @@
 
 Name: xrdhttp-pelican
 Version: 0.0.11
-Release: 1.1%{?dist}
+Release: 1.2%{?dist}
 Summary: A Pelican-specific plugin for the XrdHttp server
 
 Group: System Environment/Daemons
@@ -12,8 +12,8 @@ URL: https://github.com/pelicanplatform/xrdhttp-pelican
 Source0: %{name}-%{version}.tar.gz
 
 %define xrootd_current_major 6
-%define xrootd_current_minor 0
-%define xrootd_next_minor 1
+%define xrootd_current_minor 1
+%define xrootd_next_minor 2
 
 # Since we rely on the private headers, we don't want the plugin to cross
 # unknown feature release versions.
@@ -53,8 +53,11 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libXrdHttpPelican-*.so
 
 %changelog
+* Thu Jul 09 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.0.11-1.2.osg25up
+- Build against XRootD 6.1.0 (SOFTWARE-6329)
+
 * Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.0.11-1.1.osg25up
-- Build against XRootD 6 (SOFTWARE-6329)
+- Build against XRootD 6.0.3 (SOFTWARE-6329)
 
 * Tue Mar 03 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.0.11-1
 - Small compatibility fixes
