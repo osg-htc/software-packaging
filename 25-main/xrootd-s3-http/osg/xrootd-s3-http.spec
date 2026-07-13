@@ -1,6 +1,6 @@
 Name:		xrootd-s3-http
 Version:        0.6.9
-Release:        1.1%{?dist}
+Release:        1.2%{?dist}
 Summary:        S3/HTTP/Globus filesystem plugins for xrootd
 
 License:        Apache-2.0
@@ -9,30 +9,21 @@ Source0:        %{url}/archive/refs/tags/v%{version}/%{name}-%{version}.tar.gz
 
 %bcond_with xrootd6
 
-%if %{with xrootd6}
-%define xrootd_current_major 6
-%define xrootd_current_minor 1
-%define xrootd_next_major 7
-%else
-%define xrootd_current_major 5
-%define xrootd_current_minor 9
-%define xrootd_next_major 6
-%endif
 
 BuildRequires: cmake3
 BuildRequires: gcc-c++
 BuildRequires: make
-BuildRequires: xrootd-server-libs >= 1:%{xrootd_current_major}
-BuildRequires: xrootd-server-libs <  1:%{xrootd_next_major}
-BuildRequires: xrootd-server-devel >= 1:%{xrootd_current_major}
-BuildRequires: xrootd-server-devel <  1:%{xrootd_next_major}
+%if %{with xrootd6}
+BuildRequires: xrootd-server-devel >= 1:6, xrootd-server-devel < 1:7
+%else
+BuildRequires: xrootd-server-devel >= 1:5.9, xrootd-server-devel < 1:6
+%endif
 BuildRequires: libcurl-devel
 BuildRequires: openssl-devel
 BuildRequires: tinyxml2-devel
 BuildRequires: nlohmann-json-devel
 
-Requires: xrootd-server >= 1:%{xrootd_current_major}.%{xrootd_current_minor}
-Requires: xrootd-server <  1:%{xrootd_next_major}.0.0-1
+Requires: xrootd-server
 
 %description
 %{summary}
