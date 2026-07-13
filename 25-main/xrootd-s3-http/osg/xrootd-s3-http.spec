@@ -1,15 +1,23 @@
 Name:		xrootd-s3-http
 Version:        0.6.9
-Release:        1%{?dist}
+Release:        1.1%{?dist}
 Summary:        S3/HTTP/Globus filesystem plugins for xrootd
 
 License:        Apache-2.0
 URL:            https://github.com/PelicanPlatform/%{name}
 Source0:        %{url}/archive/refs/tags/v%{version}/%{name}-%{version}.tar.gz
 
+%bcond_with xrootd6
+
+%if %{with xrootd6}
+%define xrootd_current_major 6
+%define xrootd_current_minor 1
+%define xrootd_next_major 7
+%else
 %define xrootd_current_major 5
-%define xrootd_current_minor 7
+%define xrootd_current_minor 9
 %define xrootd_next_major 6
+%endif
 
 BuildRequires: cmake3
 BuildRequires: gcc-c++
@@ -46,15 +54,18 @@ Requires: xrootd-server <  1:%{xrootd_next_major}.0.0-1
 rm %{buildroot}%{_libdir}/libXrdPelicanHttpCore.so
 
 %files
+%{_libdir}/libXrdAccDeadlock-*.so
+%{_libdir}/libXrdAccHttpCallout-*.so
 %{_libdir}/libXrdPelicanHttpCore.so.*
-%{_libdir}/libXrdHTTPServer-5.so
-%{_libdir}/libXrdS3-5.so
-%{_libdir}/libXrdOssHttp-5.so
-%{_libdir}/libXrdOssGlobus-5.so
-%{_libdir}/libXrdOssS3-5.so
-%{_libdir}/libXrdOssFilter-5.so
-%{_libdir}/libXrdOssPosc-5.so
-%{_libdir}/libXrdN2NPrefix-5.so
+%{_libdir}/libXrdHTTPServer-*.so
+%{_libdir}/libXrdS3-*.so
+%{_libdir}/libXrdOssDeadlock-*.so
+%{_libdir}/libXrdOssHttp-*.so
+%{_libdir}/libXrdOssGlobus-*.so
+%{_libdir}/libXrdOssS3-*.so
+%{_libdir}/libXrdOssFilter-*.so
+%{_libdir}/libXrdOssPosc-*.so
+%{_libdir}/libXrdN2NPrefix-*.so
 %doc README.md
 %license LICENSE
 
