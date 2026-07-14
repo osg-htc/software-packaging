@@ -35,14 +35,19 @@ printf %s%b "%" "el$DVER 1\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
 printf %s%b "%" "osg 1\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
 printf %s%b "%" "__arch_install_post /usr/lib/rpm/check-buildroot\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.checkbuild
 printf %s%b "%" "_smp_ncpus_max 12\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.kojibuilder
+printf %s%b "%" "bcond_override_xrootd6 1\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.bcond
 
 
 %files
 /etc/rpm/macros.disttag
 /etc/rpm/macros.checkbuild
 /etc/rpm/macros.kojibuilder
+/etc/rpm/macros.bcond
 
 %changelog
+* Tue Jul 14 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 8-14.osg25up.el8
+- Enable xrootd6 build conditional (SOFTWARE-6370)
+
 * Fri Sep 05 2025 Matt Westphall <westphall@wisc.edu> - 8-13.osg25up.el8
 - osg 25 el8 version
 
