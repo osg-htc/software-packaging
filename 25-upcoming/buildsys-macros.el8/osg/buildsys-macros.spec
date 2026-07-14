@@ -12,7 +12,7 @@
 Name:		buildsys-macros
 Summary:	Macros for the OSG Buildsystem
 Version:        %{dver}
-Release:	14%{dist}
+Release:	15%{dist}
 License:	GPL
 BuildArch:      noarch
 Requires:	rpmdevtools
@@ -45,7 +45,7 @@ printf %s%b "%" "bcond_override_xrootd6 1\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.b
 /etc/rpm/macros.bcond
 
 %changelog
-* Tue Jul 14 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 8-14.osg25up.el8
+* Tue Jul 14 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 8-15.osg25up.el8
 - Enable xrootd6 build conditional (SOFTWARE-6370)
 
 * Fri Sep 05 2025 Matt Westphall <westphall@wisc.edu> - 8-13.osg25up.el8
