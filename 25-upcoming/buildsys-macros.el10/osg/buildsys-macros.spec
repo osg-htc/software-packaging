@@ -12,7 +12,7 @@
 Name:		buildsys-macros
 Summary:	Macros for the OSG Buildsystem
 Version:        %{dver}
-Release:	19%{dist}
+Release:	20%{dist}
 License:	GPL
 BuildArch:      noarch
 Requires:	rpmdevtools
@@ -29,14 +29,14 @@ mkdir -p $RPM_BUILD_ROOT/etc/rpm/
 DVER=%{dver}
 OSGVER=%{osgver}
 DIST=%{dist}
-printf %s%b "%" "rhel $DVER\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
-printf %s%b "%" "dist $DIST\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
-printf %s%b "%" "el$DVER 1\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
-printf %s%b "%" "osg 1\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
-printf %s%b "%" "__arch_install_post /usr/lib/rpm/check-buildroot\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.checkbuild
-printf %s%b "%" "_smp_ncpus_max 12\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.kojibuilder
-printf %s%b "%" "bcond_override_xrootd6 1\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.bcond
-printf %s%b "%" "_with_xrootd6 1\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.bcond
+echo "%%rhel $DVER"  >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
+echo "%%dist $DIST"  >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
+echo "%%el$DVER 1"  >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
+echo "%%osg 1"  >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
+echo "%%__arch_install_post /usr/lib/rpm/check-buildroot"  >> $RPM_BUILD_ROOT/etc/rpm/macros.checkbuild
+echo "%%_smp_ncpus_max 12"  >> $RPM_BUILD_ROOT/etc/rpm/macros.kojibuilder
+echo "%%bcond_override_xrootd6 1"  >> $RPM_BUILD_ROOT/etc/rpm/macros.bcond
+echo "%%_with_xrootd6 1"  >> $RPM_BUILD_ROOT/etc/rpm/macros.bcond
 
 
 %files
@@ -46,8 +46,9 @@ printf %s%b "%" "_with_xrootd6 1\n" >> $RPM_BUILD_ROOT/etc/rpm/macros.bcond
 /etc/rpm/macros.bcond
 
 %changelog
-* Wed Jul 15 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 10-19.osg25up.el10
+* Wed Jul 15 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 10-20.osg25up.el10
 - Second attempt at enabling xrootd6 build conditional (SOFTWARE-6370)
+- Simplify spec file
 
 * Tue Jul 14 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 10-17.osg25up.el10
 - Enable xrootd6 build conditional (SOFTWARE-6370)
