@@ -1,16 +1,23 @@
 Name:		xrootd-s3-http
 Version:        0.6.9
-Release:        1.2%{?dist}
+Release:        1.3%{?dist}
 Summary:        S3/HTTP/Globus filesystem plugins for xrootd
 
 License:        Apache-2.0
 URL:            https://github.com/PelicanPlatform/%{name}
 Source0:        %{url}/archive/refs/tags/v%{version}/%{name}-%{version}.tar.gz
 
+%bcond_with xrootd6
+
+
 BuildRequires: cmake3
 BuildRequires: gcc-c++
 BuildRequires: make
-BuildRequires: xrootd-server-devel
+%if %{with xrootd6}
+BuildRequires: xrootd-server-devel >= 1:6, xrootd-server-devel < 1:7
+%else
+BuildRequires: xrootd-server-devel >= 1:5.9, xrootd-server-devel < 1:6
+%endif
 BuildRequires: libcurl-devel
 BuildRequires: openssl-devel
 BuildRequires: tinyxml2-devel
@@ -54,18 +61,18 @@ rm %{buildroot}%{_libdir}/libXrdPelicanHttpCore.so
 %license LICENSE
 
 %changelog
-* Thu Jul 23 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.9-1.2
-- Simplify spec file; drop explicit xrootd version dependencies
+* Fri Jul 24 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.9-1.3
+- Simplify spec file
 
-* Tue Jul 14 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.9-1
+* Mon Jul 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.9-1
 - Add WebDAV (PROPFIND) directory listing with OPTIONS auto-detection
 - Implement Mkdir in HTTPFileSystem via WebDAV MKCOL
 - Add deadlock detection plugin for XRootD OSS and authorization operations
 - Add XrdAccHttpCallout plugin for HTTP-based authorization callouts
 - Fix s3_Statistics log messages ignoring s3.trace level
 
-* Thu Jun 04 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.8-1.1.osg25up
-- Remove s3_Statistics log spam
+* Tue May 26 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.8-1
+- Drop noisy s3_Statistics log messages
 
 * Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.7-1.1.osg25up
 - Build against XRootD 6.0.1 (SOFTWARE-6329)
