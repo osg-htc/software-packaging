@@ -1,7 +1,7 @@
 Summary: Service files for Pelican-based OSDF daemons
 Name: osdf-server
 Version: 7.19.1
-Release: 1%{?dist}
+Release: 2%{?dist}
 License: ASL 2.0
 Url: https://github.com/PelicanPlatform/pelican
 BuildArch: noarch
@@ -24,9 +24,7 @@ Requires: pelican-server >= %{version}
 %{-x:Requires: xrootd-voms}
 %{-x:Requires: xrootd-multiuser}
 %{-x:Requires: xrdcl-pelican}
-%%if 0%%{?rhel} >= 9
-%{-x:Requires: xrootd-s3-http >= 0.4.1}
-%%endif
+%{-x:Requires: xrootd-s3-http >= 0.6.5}
 
 %%description -n %1
 Service file for %1
@@ -111,6 +109,9 @@ install -m 0644 systemd/pelican.logrotate       $RPM_BUILD_ROOT/etc/logrotate.d/
 
 
 %changelog
+* Fri Jul 24 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 7.19.1-2
+- Bump xrootd-s3-http minimum version to 0.6.5 and enable for el8 (SOFTWARE-6302)
+
 * Mon Sep 08 2025 Mátyás Selmeci <mselmeci@wisc.edu> - 7.19.1-1
 - Upgrade to Pelican 7.19.1 (SOFTWARE-6213)
 - Fix /etc/pelican/10-federation.ini blanking out Federation.DiscoveryUrl
