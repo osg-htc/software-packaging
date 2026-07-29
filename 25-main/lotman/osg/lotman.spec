@@ -12,6 +12,8 @@ URL: https://github.com/PelicanPlatform/lotman
 
 Source0: https://github.com/PelicanPlatform/lotman/releases/download/v%{version}/lotman-%{version}.tar.gz
 
+Patch0: find_package.patch
+
 #############################################
 # Build dependencies                        #
 #############################################
@@ -23,6 +25,7 @@ BuildRequires: sqlite-devel
 BuildRequires: libuuid-devel
 BuildRequires: nlohmann-json-devel
 BuildRequires: json-schema-validator-devel
+BuildRequires: sqlite-orm-devel
 
 # Must specify the ~rc.0 so RC's work - RPM considers X~Y to be less than X.
 Conflicts: pelican-server < 7.27.0~rc.0
