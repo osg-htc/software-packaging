@@ -1,20 +1,14 @@
 #############################################
-# Global macros that can be used throughout #
-#############################################
-%global srcname json-schema-validator
-%global pkgname %{srcname}-devel
-
-#############################################
 # Package description and other info        #
 #############################################
-Name:           %{pkgname}
+Name:           json-schema-validator
 Version:        2.3.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        JSON Schema Validator
 License:        MIT
 URL:            https://github.com/pboettch/json-schema-validator
 
-Source0:        %{srcname}-%{version}.tar.gz
+Source0:        %{name}-%{version}.tar.gz
 
 #############################################
 # Build dependencies                        #
@@ -27,10 +21,17 @@ BuildRequires:  nlohmann-json-devel
 %description
 JSON Schema Validator is a library for validating JSON data against JSON Schema.
 
+%package devel
+Summary: Development files for JSON Schema Validator
+Requires: %{name} = %{version}-%{release}
+
+%description devel
+Header, unversioned .so, and CMake files for JSON Schema Validator.
+
 #############################################
 # To suppress some of the debug outputs     #
 #############################################
-%global debug_package %{nil}
+#%%global debug_package %{nil}
 
 #############################################
 # RHEL 9 will try to build out of source,   #
@@ -44,7 +45,8 @@ JSON Schema Validator is a library for validating JSON data against JSON Schema.
 # Beginning of the build + make workflow    #
 #############################################
 %prep
-%autosetup -n %{srcname}-%{version}
+%autosetup
+#%%autosetup -n %{srcname}-%{version}
 
 %build
 mkdir -p build
@@ -63,12 +65,15 @@ cd build
 %files
 %doc README.md
 %license LICENSE
-%{_includedir}/nlohmann/
-%{_libdir}/libnlohmann_json_schema_validator.so*
-%{_libdir}/cmake/nlohmann_json_schema_validator
+%{_libdir}/libnlohmann_json_schema_validator.so.*
 %{_bindir}/format-json-schema
 %{_bindir}/readme-json-schema
 %{_bindir}/json-schema-validate
+
+%files devel
+%{_includedir}/nlohmann/
+%{_libdir}/cmake/nlohmann_json_schema_validator
+%{_libdir}/libnlohmann_json_schema_validator.so
 
 #############################################
 # Changelog, where the version X.X.X-Y is   #
@@ -76,6 +81,9 @@ cd build
 # packaging revision.                       #
 #############################################
 %changelog
+* Wed Jul 29 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 2.3.0-3
+- Split runtime package from devel package to conform to Fedora Packaging Guidelines (SOFTWARE-6382)
+
 * Wed Sep 24 2025 Mátyás Selmeci <mselmeci@wisc.edu> - 2.3.0-2
 - Bump to rebuild for x86_64 on EL10
 
