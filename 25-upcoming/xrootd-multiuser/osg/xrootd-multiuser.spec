@@ -1,7 +1,7 @@
 
 Name: xrootd-multiuser
 Version: 2.2.1
-Release: 1.2%{?dist}
+Release: 1.3%{?dist}
 Summary: Multiuser filesystem writing plugin for xrootd
 
 Group: System Environment/Daemons
@@ -11,18 +11,17 @@ URL: https://github.com/opensciencegrid/xrootd-multiuser
 # git archive v%{version} --prefix=xrootd-multiuser-%{version}/ | gzip -7 > ~/rpmbuild/SOURCES/xrootd-multiuser-%{version}.tar.gz
 Source0: %{name}-%{version}.tar.gz
 
-%define xrootd_current_major 6
-%define xrootd_current_minor 0
-%define xrootd_next_major 7
+%bcond_with xrootd6
 
 %if 0%{?rhel} > 8
 %global __cmake_in_source_build 1
 %endif
 
-BuildRequires: xrootd-server-libs >= 1:%{xrootd_current_major}
-BuildRequires: xrootd-server-libs <  1:%{xrootd_next_major}
-BuildRequires: xrootd-server-devel >= 1:%{xrootd_current_major}
-BuildRequires: xrootd-server-devel <  1:%{xrootd_next_major}
+%if %{with xrootd6}
+BuildRequires: xrootd-server-devel >= 1:6, xrootd-server-devel < 1:7
+%else
+BuildRequires: xrootd-server-devel >= 1:5.2, xrootd-server-devel < 1:6
+%endif
 BuildRequires: cmake
 BuildRequires: gcc-c++
 BuildRequires: libcap-devel
@@ -32,8 +31,7 @@ BuildRequires: zlib-devel
 # For %{_unitdir} macro
 BuildRequires: systemd
 
-Requires: xrootd-server >= 1:%{xrootd_current_major}.%{xrootd_current_minor}
-Requires: xrootd-server <  1:%{xrootd_next_major}.0.0-1
+Requires: xrootd-server
 
 %description
 %{summary}
@@ -68,6 +66,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 %{_sysconfdir}/xrootd/config.d/60-osg-multiuser.cfg
 
 %changelog
+* Fri Jul 31 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 2.2.1-1.3
+- Simplify spec file and add xrootd6 build conditional
+
 * Tue May 12 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 2.2.1-1.2.osg25up
 - Build against XRootD 6 (SOFTWARE-6329)
 
