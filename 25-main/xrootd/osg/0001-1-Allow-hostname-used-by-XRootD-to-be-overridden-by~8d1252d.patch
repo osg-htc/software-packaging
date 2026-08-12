@@ -1,7 +1,7 @@
-From e0d0579ade3f9da4940ef7d90dca13d56c4aab82 Mon Sep 17 00:00:00 2001
+From d16f9b59e4337c865ecc0c28985e30717fa218e9 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Wed, 15 Jan 2025 08:01:58 -0600
-Subject: [PATCH 1/6] [#1] Allow hostname used by XRootD to be overridden by
+Subject: [PATCH 1/7] [#1] Allow hostname used by XRootD to be overridden by
  env var.
 
 This affects how the host advertises itself to other servers in a cluster
@@ -21,10 +21,10 @@ especially in Kubernetes-based environments).
  10 files changed, 117 insertions(+), 78 deletions(-)
 
 diff --git a/src/Xrd/XrdConfig.cc b/src/Xrd/XrdConfig.cc
-index 37f6ec851..8e7986b6b 100644
+index 82c7758a4..fb0c0ff47 100644
 --- a/src/Xrd/XrdConfig.cc
 +++ b/src/Xrd/XrdConfig.cc
-@@ -588,24 +588,33 @@ int XrdConfig::Configure(int argc, char **argv)
+@@ -588,11 +588,20 @@ int XrdConfig::Configure(int argc, char **argv)
  // run in v4 mode and that doesn't get set until after the options are scanned.
  //
     static XrdNetAddr *myIPAddr = new XrdNetAddr((int)0);
@@ -47,8 +47,7 @@ index 37f6ec851..8e7986b6b 100644
     ProtInfo.myAddr = myIPAddr->SockAddr();
     ProtInfo.myInst = XrdOucUtils::InstName(myInsName);
     ProtInfo.myProg = myProg;
- 
- // Set the Environmental variable to hold the instance name
+@@ -601,11 +610,11 @@ int XrdConfig::Configure(int argc, char **argv)
  // XRDINSTANCE=<pgm> <instance name>@<host name>
  //                 XrdOucEnv::Export("XRDINSTANCE")
  //
@@ -137,7 +136,7 @@ diff --git a/src/XrdCms/XrdCmsClientMan.cc b/src/XrdCms/XrdCmsClientMan.cc
 index 9f5294195..677b64da3 100644
 --- a/src/XrdCms/XrdCmsClientMan.cc
 +++ b/src/XrdCms/XrdCmsClientMan.cc
-@@ -323,20 +323,25 @@ int XrdCmsClientMan::Hookup()
+@@ -323,7 +323,7 @@ int XrdCmsClientMan::Hookup()
     EPNAME("Hookup");
     CmsLoginData Data;
     XrdLink *lp;
@@ -146,12 +145,7 @@ index 9f5294195..677b64da3 100644
     kXR_char *envData = 0;
     int rc, oldWait, tries = 12, opts = 0;
  
- // Turn off our debugging and version flags
- //
-    manMutex.Lock();
-    doDebug    &= ~manMask;
-    manMutex.UnLock();
- 
+@@ -336,7 +336,12 @@ int XrdCmsClientMan::Hookup()
  // Report our hostname (there are better ways of doing this)
  //
     const char *hn = getenv("XRDHOST");
@@ -216,7 +210,7 @@ index 7db85777f..057641a4c 100644
             Sel.Resp.DLen++; Sel.smask = nP->NodeMask;
             if (Sel.iovN && Sel.iovP) nP->Send(Sel.iovP, Sel.iovN);
 diff --git a/src/XrdCms/XrdCmsConfig.cc b/src/XrdCms/XrdCmsConfig.cc
-index 3a2a69af3..2bb168961 100644
+index c5d07822f..01eaa2733 100644
 --- a/src/XrdCms/XrdCmsConfig.cc
 +++ b/src/XrdCms/XrdCmsConfig.cc
 @@ -415,6 +415,11 @@ int XrdCmsConfig::Configure2()

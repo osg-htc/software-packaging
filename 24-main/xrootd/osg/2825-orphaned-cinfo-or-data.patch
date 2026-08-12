@@ -1,0 +1,126 @@
+From 5289a2676f943643ad9109346fc6bfc98bc03701 Mon Sep 17 00:00:00 2001
+From: Matevz Tadel <mtadel@ucsd.edu>
+Date: Wed, 10 Jun 2026 11:46:20 -0700
+Subject: [PATCH 1/2] [XrdPfc] Plug the corner cases with orphaned cinfo or
+ data file.
+
+Under particular circumstances (loss of data file while cinfo remains,
+followed by a failed remote stat during an open call) the previous handling
+was observed to lead to cache erroneously assuming that the file size is
+supposed to be zero.
+
+This fix is specific to 5.9.x branch as the file open path has diverged with
+respect to version 6. A separate review will be done there.
+
+* XrdPfc.cc
+  - In Cache::GetFile() do not attempt to open the file if initialStat (local or remote) failed.
+  - In Cache::Prepare() require an OK state from both cinfo AND data stat calls for deferred open.
+
+* XrdPfcFile.cc
+  - In File::Open() truncate an orphaned data file.
+  - In File::Open() properly pass the file_existed flag, taking into account
+    possible purging and truncation during open.
+
+* XrdPfcIOFile.cc
+  - In IOFile::initialStat() require an OK state from both data AND cinfo stat calls for
+    considering the local stat and file-size information to be current.
+---
+ src/XrdPfc/XrdPfc.cc       | 5 ++++-
+ src/XrdPfc/XrdPfcFile.cc   | 7 ++++++-
+ src/XrdPfc/XrdPfcIOFile.cc | 4 +++-
+ 3 files changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/src/XrdPfc/XrdPfc.cc b/src/XrdPfc/XrdPfc.cc
+index b30de53ecd3..852acb331a9 100644
+--- a/src/XrdPfc/XrdPfc.cc
++++ b/src/XrdPfc/XrdPfc.cc
+@@ -431,9 +431,11 @@ File* Cache::GetFile(const std::string& path, IO* io, long long off, long long f
+       int res = io->Fstat(st);
+       if (res < 0) {
+          errno = res;
++         filesize = -1;
+          TRACE(Error, "GetFile, could not get valid stat");
+       } else if (res > 0) {
+          errno = ENOTSUP;
++         filesize = -1;
+          TRACE(Error, "GetFile, stat returned positive value, this should NOT happen here");
+       } else {
+          filesize = st.st_size;
+@@ -1095,7 +1097,8 @@ int Cache::Prepare(const char *curl, int oflags, mode_t mode)
+    }
+ 
+    struct stat sbuff;
+-   if (m_oss->Stat(i_name.c_str(), &sbuff) == XrdOssOK)
++   if (m_oss->Stat(i_name.c_str(), &sbuff) == XrdOssOK &&
++       m_oss->Stat(f_name.c_str(), &sbuff) == XrdOssOK)
+    {
+       TRACE(Dump, "Prepare defer open " << f_name);
+       return 1;
+diff --git a/src/XrdPfc/XrdPfcFile.cc b/src/XrdPfc/XrdPfcFile.cc
+index 031e6cfcb54..cae33b9107b 100644
+--- a/src/XrdPfc/XrdPfcFile.cc
++++ b/src/XrdPfc/XrdPfcFile.cc
+@@ -546,6 +546,11 @@ bool File::Open(XrdOucCacheIO* inputIO)
+       m_cfi.Write(m_info_file, ifn.c_str());
+       m_info_file->Fsync();
+       cache()->WriteFileSizeXAttr(m_info_file->getFD(), m_file_size);
++      // There is still a chance we had an orphaned data-file.
++      if (data_existed && ! info_existed) {
++         m_data_file->Ftruncate(0);
++         // Resource-monitor does not count orphaned files (planned for 6.x) so no register_purge().
++      }
+       TRACEF(Debug, tpfx << "Creating new file info, data size = " <<  m_file_size << " num blocks = "  << m_cfi.GetNBlocks()
+                          << " block size = " << pfc_blocksize);
+    }
+@@ -571,7 +576,7 @@ bool File::Open(XrdOucCacheIO* inputIO)
+    m_data_file->Fstat(&data_stat);
+    m_st_blocks = data_stat.st_blocks;
+ 
+-   m_resmon_token = Cache::ResMon().register_file_open(m_filename, time(0), data_existed);
++   m_resmon_token = Cache::ResMon().register_file_open(m_filename, time(0), ! initialize_info_file);
+    constexpr long long MB = 1024 * 1024;
+    m_resmon_report_threshold = std::min(std::max(10 * MB, m_file_size / 20), 500 * MB);
+    // m_resmon_report_threshold_scaler; // something like 10% of original threshold, to adjust
+diff --git a/src/XrdPfc/XrdPfcIOFile.cc b/src/XrdPfc/XrdPfcIOFile.cc
+index 0bac86c7f76..d27b11335c6 100644
+--- a/src/XrdPfc/XrdPfcIOFile.cc
++++ b/src/XrdPfc/XrdPfcIOFile.cc
+@@ -78,7 +78,9 @@ int IOFile::initialStat(struct stat &sbuff)
+    static const char* trace_pfx = "initialStat ";
+ 
+    std::string fname = GetFilename();
+-   if (m_cache.GetOss()->Stat(fname.c_str(), &sbuff) == XrdOssOK)
++   std::string iname = fname + Info::s_infoExtension;
++   if (m_cache.GetOss()->Stat(iname.c_str(), &sbuff) == XrdOssOK &&
++       m_cache.GetOss()->Stat(fname.c_str(), &sbuff) == XrdOssOK)
+    {
+       long long file_size = m_cache.DetermineFullFileSize(fname + Info::s_infoExtension);
+       if (file_size >= 0)
+
+From 8a47c87a6c9c2fa0ad95588174a6289aa9a3393a Mon Sep 17 00:00:00 2001
+From: Matevz Tadel <mtadel@ucsd.edu>
+Date: Thu, 11 Jun 2026 14:27:59 -0700
+Subject: [PATCH 2/2] [XrdPfc] In IOFile::initialStat() make it clear that the
+ file-size was read from the info file.
+
+---
+ src/XrdPfc/XrdPfcIOFile.cc | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/XrdPfc/XrdPfcIOFile.cc b/src/XrdPfc/XrdPfcIOFile.cc
+index d27b11335c6..601c9ec766f 100644
+--- a/src/XrdPfc/XrdPfcIOFile.cc
++++ b/src/XrdPfc/XrdPfcIOFile.cc
+@@ -86,10 +86,10 @@ int IOFile::initialStat(struct stat &sbuff)
+       if (file_size >= 0)
+       {
+          sbuff.st_size = file_size;
+-         TRACEIO(Info, trace_pfx << "successfully read size " << sbuff.st_size << " from info file");
++         TRACE(Info, trace_pfx << "successfully read size " << sbuff.st_size << " from info file " << iname);
+          return 0;
+       }
+-      TRACEIO(Error, trace_pfx << "failed reading from info file " << XrdSysE2T(-file_size));
++      TRACE(Error, trace_pfx << "failed reading from info file " << iname  << " " << XrdSysE2T(-file_size));
+    }
+ 
+    int res = GetInput()->Fstat(sbuff);

@@ -1,4 +1,4 @@
-From 0e27d3d3ddd8c604faf809e71912d9493e5ca32b Mon Sep 17 00:00:00 2001
+From 71cc98f02df3e4803460f3b3563f57c6e08bf4e5 Mon Sep 17 00:00:00 2001
 From: Howard Zhong <hzhong45@wisc.edu>
 Date: Tue, 7 Jul 2026 17:23:32 +0000
 Subject: [PATCH 7/7] [#55] [XrdPfc] Backstop crash from negative dir count in

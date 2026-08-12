@@ -1,7 +1,7 @@
-From f15a5015f4f6e7ababc4afe469170801c4eb017b Mon Sep 17 00:00:00 2001
+From 1c2595c56e518a5475309b14571b718b514d1afb Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Sun, 6 Apr 2025 13:52:43 -0500
-Subject: [PATCH 3/6] [#32] Enable write-through mode for cache
+Subject: [PATCH 3/7] [#32] Enable write-through mode for cache
 
 Allow the PFC to proxy ("write-through") writes when configured
 to do so (default is current behavior of disabling writes).
