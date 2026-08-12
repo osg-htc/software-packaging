@@ -33,11 +33,14 @@ echo "%%dist $DIST"  >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
 echo "%%el$DVER 1"  >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
 echo "%%osg 1"  >> $RPM_BUILD_ROOT/etc/rpm/macros.disttag
 echo "%%_smp_ncpus_max 12"  >> $RPM_BUILD_ROOT/etc/rpm/macros.kojibuilder
+echo "%%bcond_override_xrootd6 1"  >> $RPM_BUILD_ROOT/etc/rpm/macros.bcond
+echo "%%_with_xrootd6 1"  >> $RPM_BUILD_ROOT/etc/rpm/macros.bcond
 
 
 %files
 /etc/rpm/macros.disttag
 /etc/rpm/macros.kojibuilder
+/etc/rpm/macros.bcond
 
 %changelog
 * Wed Aug 12 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 26-1
