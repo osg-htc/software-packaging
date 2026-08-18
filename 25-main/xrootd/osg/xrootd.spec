@@ -44,14 +44,14 @@
 #-------------------------------------------------------------------------------
 Name:		xrootd
 Epoch:		1
-Release:	1.2%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
 URL:		https://xrootd.org
 
 %if !%{with git}
-Version:	5.9.6
+Version:	5.9.7
 Source0:	https://xrootd.web.cern.ch/download/v%{version}/%{name}-%{version}.tar.gz
 %else
 %define git_version %(tar xzf %{_sourcedir}/%{name}.tar.gz -O xrootd/VERSION)
@@ -67,15 +67,15 @@ Source0:	%{name}.tar.gz
 Source1:   xrootd-%{compat_version}.tar.gz
 
 # PelicanPlatform/xrootd #1 (xrootd/xrootd #1868):
-Patch1: 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~e13587e.patch
+Patch1: 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~8d1252d.patch
 # PelicanPlatform/xrootd #6 (xrootd/xrootd #2397):
-Patch2: 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~def6724.patch
+Patch2: 0002-6-XrdSciTokens-Handle-multiple-authorization-token-s~47093c5.patch
 # PelicanPlatform/xrootd #32 (xrootd/xrootd #2472):
 Patch3: 0003-32-Enable-write-through-mode-for-cache~330eac1.patch
 # PelicanPlatform/xrootd #34 (no upstream):
 Patch4: 0004-34-Add-S3-as-a-permitted-proxy-protocol~b36d9b7.patch
 # PelicanPlatform/xrootd #44 (xrootd/xrootd #2576):
-Patch5: 0005-42-Full-pkcs11-integration~d92e458.patch
+Patch5: 0005-42-Full-pkcs11-integration~b693ea6.patch
 # PelicanPlatform/xrootd #48 (no upstream):
 Patch6: 0006-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 ## xrootd/xrootd #2825 (no PelicanPlatform)
@@ -767,6 +767,7 @@ fi
 
 %files devel
 %{_bindir}/xrootd-config
+%{_mandir}/man1/xrootd-config.1*
 %dir %{_includedir}/%{name}
 %{_includedir}/%{name}/XProtocol
 %{_includedir}/%{name}/Xrd
@@ -964,6 +965,10 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Wed Aug 12 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.7-1.1
+- Update to XRootD 5.9.7 (SOFTWARE-6385)
+  (all patches kept)
+
 * Wed Jul 08 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.6-1.2
 - Add 0007-55-XrdPfc-Backstop-crash-from-negative-dir-count-in~57916c2.patch (SOFTWARE-6367)
 

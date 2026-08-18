@@ -1,30 +1,29 @@
 Name:		xrootd-s3-http
-Version:        0.6.8
-Release:        1.1%{?dist}
+Version:        0.6.9
+Release:        1.3%{?dist}
 Summary:        S3/HTTP/Globus filesystem plugins for xrootd
 
 License:        Apache-2.0
 URL:            https://github.com/PelicanPlatform/%{name}
 Source0:        %{url}/archive/refs/tags/v%{version}/%{name}-%{version}.tar.gz
 
-%define xrootd_current_major 6
-%define xrootd_current_minor 0
-%define xrootd_next_major 7
+%bcond_with xrootd6
+
 
 BuildRequires: cmake3
 BuildRequires: gcc-c++
 BuildRequires: make
-BuildRequires: xrootd-server-libs >= 1:%{xrootd_current_major}
-BuildRequires: xrootd-server-libs <  1:%{xrootd_next_major}
-BuildRequires: xrootd-server-devel >= 1:%{xrootd_current_major}
-BuildRequires: xrootd-server-devel <  1:%{xrootd_next_major}
+%if %{with xrootd6}
+BuildRequires: xrootd-server-devel >= 1:6, xrootd-server-devel < 1:7
+%else
+BuildRequires: xrootd-server-devel >= 1:5.9, xrootd-server-devel < 1:6
+%endif
 BuildRequires: libcurl-devel
 BuildRequires: openssl-devel
 BuildRequires: tinyxml2-devel
 BuildRequires: nlohmann-json-devel
 
-Requires: xrootd-server >= 1:%{xrootd_current_major}.%{xrootd_current_minor}
-Requires: xrootd-server <  1:%{xrootd_next_major}.0.0-1
+Requires: xrootd-server
 
 %description
 %{summary}
@@ -46,21 +45,34 @@ Requires: xrootd-server <  1:%{xrootd_next_major}.0.0-1
 rm %{buildroot}%{_libdir}/libXrdPelicanHttpCore.so
 
 %files
+%{_libdir}/libXrdAccDeadlock-*.so
+%{_libdir}/libXrdAccHttpCallout-*.so
 %{_libdir}/libXrdPelicanHttpCore.so.*
-%{_libdir}/libXrdHTTPServer-6.so
-%{_libdir}/libXrdS3-6.so
-%{_libdir}/libXrdOssHttp-6.so
-%{_libdir}/libXrdOssGlobus-6.so
-%{_libdir}/libXrdOssS3-6.so
-%{_libdir}/libXrdOssFilter-6.so
-%{_libdir}/libXrdOssPosc-6.so
-%{_libdir}/libXrdN2NPrefix-6.so
+%{_libdir}/libXrdHTTPServer-*.so
+%{_libdir}/libXrdS3-*.so
+%{_libdir}/libXrdOssDeadlock-*.so
+%{_libdir}/libXrdOssHttp-*.so
+%{_libdir}/libXrdOssGlobus-*.so
+%{_libdir}/libXrdOssS3-*.so
+%{_libdir}/libXrdOssFilter-*.so
+%{_libdir}/libXrdOssPosc-*.so
+%{_libdir}/libXrdN2NPrefix-*.so
 %doc README.md
 %license LICENSE
 
 %changelog
-* Thu Jun 04 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.8-1.1.osg25up
-- Remove s3_Statistics log spam
+* Fri Jul 24 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.9-1.3
+- Simplify spec file
+
+* Mon Jul 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.9-1
+- Add WebDAV (PROPFIND) directory listing with OPTIONS auto-detection
+- Implement Mkdir in HTTPFileSystem via WebDAV MKCOL
+- Add deadlock detection plugin for XRootD OSS and authorization operations
+- Add XrdAccHttpCallout plugin for HTTP-based authorization callouts
+- Fix s3_Statistics log messages ignoring s3.trace level
+
+* Tue May 26 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.8-1
+- Drop noisy s3_Statistics log messages
 
 * Wed May 13 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.7-1.1.osg25up
 - Build against XRootD 6.0.1 (SOFTWARE-6329)
