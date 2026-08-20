@@ -1,4 +1,4 @@
-From a4253da8ba9f38e258bca97666010d52a714fe8a Mon Sep 17 00:00:00 2001
+From 4726c88d7dd172654cdba9e3961a595c8d6de1e5 Mon Sep 17 00:00:00 2001
 From: Howard Zhong <61568048+h2zh@users.noreply.github.com>
 Date: Thu, 29 Jan 2026 11:31:56 -0600
 Subject: [PATCH 2/4] [#42] Full pkcs11 integration
@@ -128,7 +128,7 @@ index 261087f58..3384a02f9 100644
  #include <sys/stat.h>
  
  #include "XrdOuc/XrdOucUtils.hh"
-@@ -46,20 +72,101 @@ namespace XrdTlsGlobal
+@@ -46,6 +72,79 @@ namespace XrdTlsGlobal
  {
  extern XrdSysTrace SysTrace;
  };
@@ -208,10 +208,7 @@ index 261087f58..3384a02f9 100644
    
  /******************************************************************************/
  /*                      X r d T l s C o n t e x t I m p l                     */
- /******************************************************************************/
- 
- struct XrdTlsContextImpl
- {
+@@ -56,10 +155,18 @@ struct XrdTlsContextImpl
      XrdTlsContextImpl(XrdTlsContext *p)
                       : ctx(0), ctxnew(0), owner(p), flsCVar(0),
                         flushT(0),
