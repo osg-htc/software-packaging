@@ -24,7 +24,7 @@
 %define auto_release 1
 
 %define version 2.0.6
-%define release 0.8.rc8
+%define release 1
 
 %define decisionengine_home %{_sharedstatedir}/decisionengine
 #%define systemddir %{_prefix}/lib/systemd/system
