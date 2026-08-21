@@ -8,7 +8,7 @@
 
 %if 0%{?rhel} == 8
 # In EL8: python39 is python3.9 (python3 is 3.6)
-%global python3_pkgversion 3
+%global python3_pkgversion 39
 %else
 # In EL9: python3 == python3.9
 %global python3_pkgversion 3
@@ -23,8 +23,8 @@
 %define auto_version %(FULLVER=$(git describe --tag | sed 's/-/_/g');  GVER=$(sed 's/.*_\\\([[:digit:]].*\\\)_/dev\\\1+/g' <<< ${FULLVER}); VER=${FULLVER//_*}; echo ${VER%.*}.$((${VER##*.}+1)).${GVER})
 %define auto_release 1
 
-%define version 2.0.6
-%define release 0.1.rc1
+%define version __HCDE_RPM_VERSION__
+%define release __HCDE_RPM_RELEASE__
 
 %define decisionengine_home %{_sharedstatedir}/decisionengine
 #%define systemddir %{_prefix}/lib/systemd/system
@@ -164,10 +164,13 @@ install -d $RPM_BUILD_ROOT%{decisionengine_home}/passwords.d
 install -d $RPM_BUILD_ROOT%{decisionengine_home}/tokens.d
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/decisionengine
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/decisionengine/config.d
+install -d $RPM_BUILD_ROOT%{_sysconfdir}/decisionengine/init.d
 install -d $RPM_BUILD_ROOT%{_localstatedir}/log/decisionengine
 install -m 0644 %{src_de_base}/config/decision_engine.jsonnet $RPM_BUILD_ROOT%{_sysconfdir}/decisionengine/
 install -D -m 0644 %{src_de_package}/systemd/decisionengine.service $RPM_BUILD_ROOT%{_unitdir}/decisionengine.service
 install -D -m 0644 %{src_de_package}/systemd/decisionengine_sysconfig $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/decisionengine
+install -D -m 0755 %{src_de_package}/rpm/decisionengine-init.sh $RPM_BUILD_ROOT%{_bindir}/decisionengine-init.sh
+install -D -m 0755 %{src_de_package}/rpm/dem_glideinwms.sh $RPM_BUILD_ROOT%{_sysconfdir}/decisionengine/init.d/dem_glideinwms.sh
 install -D -m 0755 %{src_de_package}/rpm/decisionengine-wrapper.sh $RPM_BUILD_ROOT%{_bindir}/decisionengine-wrapper.sh
 install -D -m 0755 %{src_de_package}/rpm/decisionengine-install-python.sh $RPM_BUILD_ROOT%{_bindir}/decisionengine-install-python
 # Add links to the wrapper script for all decisionengine binaries
@@ -224,6 +227,7 @@ systemctl daemon-reload || true
 %dir %attr(700, decisionengine, decisionengine) %{decisionengine_home}/tokens.d
 %dir %{_sysconfdir}/decisionengine
 %dir %{_sysconfdir}/decisionengine/config.d
+%dir %{_sysconfdir}/decisionengine/init.d
 %config(noreplace) %{_sysconfdir}/decisionengine/decision_engine.jsonnet
 %attr(-, root, root) %{_unitdir}/decisionengine.service
 %attr(-, root, root) %config(noreplace) %{_sysconfdir}/sysconfig/decisionengine
@@ -234,11 +238,14 @@ systemctl daemon-reload || true
 %attr(-, root, root) %{_bindir}/de-query-tool
 %attr(-, root, root) %{_bindir}/de-reaper
 %attr(-, root, root) %{_bindir}/decisionengine-install-python
+%attr(-, root, root) %{_bindir}/decisionengine-init.sh
+
 
 # add all files in config.d
 %attr(-, decisionengine, decisionengine) %dir %{_localstatedir}/log/decisionengine
 
 %files modules-deps
+%config(noreplace) %{_sysconfdir}/decisionengine/init.d/dem_glideinwms.sh
 
 %files standalone
 
