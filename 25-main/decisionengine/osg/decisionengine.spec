@@ -20,11 +20,11 @@
 # Official Release NVR format
 # define release 2
 
-##define auto_version %(FULLVER=$(git describe --tag | sed 's/-/_/g');  GVER=$(sed 's/.*_\\\([[:digit:]].*\\\)_/dev\\\1+/g' <<< ${FULLVER}); VER=${FULLVER//_*}; echo ${VER%.*}.$((${VER##*.}+1)).${GVER})
-##define auto_release 1
+%define auto_version %(FULLVER=$(git describe --tag | sed 's/-/_/g');  GVER=$(sed 's/.*_\\\([[:digit:]].*\\\)_/dev\\\1+/g' <<< ${FULLVER}); VER=${FULLVER//_*}; echo ${VER%.*}.$((${VER##*.}+1)).${GVER})
+%define auto_release 1
 
 %define version 2.0.6
-%define release 2
+%define release 1
 
 %define decisionengine_home %{_sharedstatedir}/decisionengine
 #%define systemddir %{_prefix}/lib/systemd/system
