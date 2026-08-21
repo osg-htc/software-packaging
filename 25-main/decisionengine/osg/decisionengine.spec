@@ -23,8 +23,8 @@
 %define auto_version %(FULLVER=$(git describe --tag | sed 's/-/_/g');  GVER=$(sed 's/.*_\\\([[:digit:]].*\\\)_/dev\\\1+/g' <<< ${FULLVER}); VER=${FULLVER//_*}; echo ${VER%.*}.$((${VER##*.}+1)).${GVER})
 %define auto_release 1
 
-%define version __HCDE_RPM_VERSION__
-%define release __HCDE_RPM_RELEASE__
+%define version 2.0.6
+%define release 0.8.rc8
 
 %define decisionengine_home %{_sharedstatedir}/decisionengine
 #%define systemddir %{_prefix}/lib/systemd/system
