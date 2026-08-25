@@ -1,7 +1,7 @@
 
 Name: xrdhttp-pelican
-Version: 0.0.11
-Release: 1.2%{?dist}
+Version: 0.0.12
+Release: 1.1%{?dist}
 Summary: A Pelican-specific plugin for the XrdHttp server
 
 Group: System Environment/Daemons
@@ -53,6 +53,16 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/libXrdHttpPelican-*.so
 
 %changelog
+* Tue Aug 25 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.0.12-1.1.osg25up
+- Build against XRootD 6.1.1
+
+* Tue Aug 25 2026 Brian Bockelman <bbockelman@morgridge.org> - 0.0.12-1
+- Rewrite signal handler to use fewer signal unsafe functions.
+  On Linux, the remaining unsafe function should only deadlock if it runs
+  concurrently with a dlopen() call.
+- Add a watchdog alarm to auto-kill the process if it does happen to
+  deadlock during the backtrace printing.
+
 * Thu Jul 09 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.0.11-1.2.osg25up
 - Build against XRootD 6.1.0 (SOFTWARE-6329)
 
