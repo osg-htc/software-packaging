@@ -1,0 +1,166 @@
+From 67e814f56c472dd163e9105999f04c9fe1130595 Mon Sep 17 00:00:00 2001
+From: Brian Bockelman <bbockelman@morgridge.org>
+Date: Fri, 28 Aug 2026 15:59:22 -0500
+Subject: [PATCH 8/8] [#58] Wait for in-flight protocol dispatch before
+ recycling a link
+
+XrdLinkXeq::DoIt() dispatches a worker thread into Protocol->Process(); for
+XrdHttp this runs the TLS handshake inside SSL_accept(). Nothing kept another
+thread from closing the same link while that dispatch was still running.
+XrdLinkXeq::Close() only waited for the InUse reference count, which a
+scheduler dispatch does not raise, and XrdLink objects (and their file
+descriptors) are pooled and reused by XrdLinkCtl::Alloc(). An out-of-band
+Close() -- e.g. from a bridge response continuation
+(XrdXrootdTransit::Proceed/Redrive) that closes on a send failure -- could
+therefore run Protocol->Recycle() and free the protocol stack (for XrdHttp,
+SSL_shutdown()/SSL_free() on the SSL and its init_buf handshake buffer) while
+the dispatched thread was still inside SSL_accept() building the ServerHello.
+The result was a use-after-free, seen in production as a SIGSEGV in
+memcpy <- tls_construct_stoc_key_share writing an X25519MLKEM768 key share
+into the freed buffer.
+
+Track the number of threads currently dispatched into the protocol in a new
+per-link dspCnt counter: DoIt() increments it under opMutex while the link
+still has a protocol, and decrements it once Process() returns. Close() now
+drains dspCnt (in addition to InUse) before removing the protocol, and holds
+opMutex continuously from the point both counts reach zero until the protocol
+is cleared, so no new dispatch can slip in.
+
+InUse/setRef() cannot be reused for this: a Serialize() issued from within
+Process() would count the dispatching thread itself and deadlock. The dispatch
+count is therefore kept separate, and DoIt() decrements it before it may itself
+call Close(), so a thread never waits on its own dispatch.
+
+Fixes: https://github.com/xrootd/xrootd/issues/2913
+
+Assisted-by: Claude Fable 5
+---
+ src/Xrd/XrdLinkInfo.hh |  8 +++++-
+ src/Xrd/XrdLinkXeq.cc  | 56 +++++++++++++++++++++++++++++++++++-------
+ 2 files changed, 54 insertions(+), 10 deletions(-)
+
+diff --git a/src/Xrd/XrdLinkInfo.hh b/src/Xrd/XrdLinkInfo.hh
+index a56a92f54..b2711c6ff 100644
+--- a/src/Xrd/XrdLinkInfo.hh
++++ b/src/Xrd/XrdLinkInfo.hh
+@@ -41,11 +41,14 @@ class XrdLinkInfo
+ 
+ XrdSysCondVar  *KillcvP;      // Protected by opMutex!
+ XrdSysSemaphore IOSemaphore;  // Serialization semaphore
++XrdSysSemaphore dspSem;       // Posted when protocol dispatch ends
+ time_t          conTime;      // Unix time connected
+ char           *Etext;        // -> error text, if nil then no error.
+ XrdSysRecMutex  opMutex;      // Serialization mutex
+ int             InUse;        // Number of threads using this object
+ int             doPost;       // Number of threads waiting for serialization
++int             dspCnt;       // Number of threads dispatched into the protocol
++int             dspPost;      // Number of threads waiting for dispatch to end
+ int             FD;           // File descriptor for link use (may be negative)
+ char            KillCnt;      // Number of times a kill has been attempted
+ 
+@@ -55,11 +58,14 @@ void            Reset()
+                       if (Etext)    {free(Etext); Etext = 0;}
+                       InUse    =  1;
+                       doPost   =  0;
++                      dspCnt   =  0;
++                      dspPost  =  0;
+                       FD       = -1;
+                       KillCnt  =  0;
+                      }
+ 
+-                XrdLinkInfo() : IOSemaphore(0, "link i/o"), Etext(0) {Reset();}
++                XrdLinkInfo() : IOSemaphore(0, "link i/o"),
++                                dspSem(0, "link dsp"), Etext(0) {Reset();}
+ 
+                ~XrdLinkInfo() {}
+ };
+diff --git a/src/Xrd/XrdLinkXeq.cc b/src/Xrd/XrdLinkXeq.cc
+index ca9d55200..cab2ebcc5 100644
+--- a/src/Xrd/XrdLinkXeq.cc
++++ b/src/Xrd/XrdLinkXeq.cc
+@@ -212,13 +212,26 @@ int XrdLinkXeq::Close(bool defer)
+       }
+ 
+ // Multiple protocols may be bound to this link. If it is in use, defer the
+-// actual close until the use count drops to one.
+-//
+-   while(LinkInfo.InUse > 1)
+-      {opHelper.UnLock();
+-       TRACEI(DEBUG, "Close FD "<<LinkInfo.FD <<" deferred, use count="
+-                     <<LinkInfo.InUse);
+-       Serialize();
++// actual close until the use count drops to one. Similarly, if a thread is
++// dispatched into the protocol (i.e. inside Process()), wait for it to
++// return before we recycle the protocol stack out from under it. Once both
++// counts drain we hold the opMutex until the protocol is removed, so no new
++// dispatch can slip in.
++//
++   while(LinkInfo.InUse > 1 || LinkInfo.dspCnt > 0)
++      {if (LinkInfo.InUse > 1)
++          {opHelper.UnLock();
++           TRACEI(DEBUG, "Close FD "<<LinkInfo.FD <<" deferred, use count="
++                         <<LinkInfo.InUse);
++           Serialize();
++          }
++          else
++          {LinkInfo.dspPost++;
++           opHelper.UnLock();
++           TRACEI(DEBUG, "Close FD "<<LinkInfo.FD <<" deferred, dispatch count="
++                         <<LinkInfo.dspCnt);
++           LinkInfo.dspSem.Wait();
++          }
+        opHelper.Lock(&LinkInfo.opMutex);
+       }
+    LinkInfo.InUse--;
+@@ -294,14 +307,29 @@ void XrdLinkXeq::DoIt()
+ {
+    int rc;
+ 
++// Count this thread as dispatched into the protocol so that a concurrent
++// Close() waits for the protocol call to return before recycling the protocol
++// stack (e.g. XrdHttp's SSL session) out from under Process(). We may only do
++// so while the link still has a protocol; Close() removes the protocol while
++// continuously holding the opMutex after draining dispatched threads, making
++// this check-and-count atomic with respect to link teardown. Note that we
++// cannot use setRef() for this because InUse counts threads other than the
++// one running the protocol (e.g. Serialize() called within Process() would
++// count us and deadlock).
++//
++   LinkInfo.opMutex.Lock();
++   bool isOpen = (Protocol != 0);
++   if (isOpen) LinkInfo.dspCnt++;
++   LinkInfo.opMutex.UnLock();
++
+ // The Process() return code tells us what to do:
+-// < 0 -> Stop getting requests, 
++// < 0 -> Stop getting requests,
+ //        -EINPROGRESS leave link disabled but otherwise all is well
+ //        -n           Error, disable and close the link
+ // = 0 -> OK, get next request, if allowed, o/w enable the link
+ // > 0 -> Slow link, stop getting requests  and enable the link
+ //
+-   if (Protocol)
++   if (isOpen)
+       do {rc = Protocol->Process(this);} while (!rc && Sched.canStick());
+       else {Log.Emsg("Link", "Dispatch on closed link", ID);
+             return;
+@@ -315,6 +343,16 @@ void XrdLinkXeq::DoIt()
+       {if (PollInfo.Poller && !PollInfo.Poller->Enable(PollInfo)) doCl = true;}
+       else if (rc != -EINPROGRESS) doCl = true;
+ 
++// Indicate that we are no longer dispatched into the protocol, waking up any
++// thread waiting to close this link. This must be done before we ourselves
++// try to close the link lest we deadlock waiting on ourselves.
++//
++   LinkInfo.opMutex.Lock();
++   LinkInfo.dspCnt--;
++   while(LinkInfo.dspCnt == 0 && LinkInfo.dspPost)
++        {LinkInfo.dspSem.Post(); LinkInfo.dspPost--;}
++   LinkInfo.opMutex.UnLock();
++
+    if (doCl)
+       {if (CloseRequestCb)
+          {const bool res = CloseRequestCb(CloseRequestCbArg);
+-- 
+2.52.0
+

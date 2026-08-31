@@ -44,7 +44,7 @@
 #-------------------------------------------------------------------------------
 Name:		xrootd
 Epoch:		1
-Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.2%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
@@ -83,6 +83,8 @@ Patch6: 0006-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 
 # PelicanPlatform/xrootd #55 (no upstream):
 Patch7: 0007-55-XrdPfc-Backstop-crash-from-negative-dir-count-in~57916c2.patch
+# PelicanPlatform/xrootd #58 (no upstream):
+Patch8: 0008-58-Wait-for-in-flight-protocol-dispatch-before-recyc~084e381.patch
 
 
 BuildRequires:	cmake
@@ -965,6 +967,9 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Mon Aug 31 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.7-1.2
+- Add 0008-58-Wait-for-in-flight-protocol-dispatch-before-recyc~084e381.patch (SOFTWARE-6385)
+
 * Wed Aug 12 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.7-1.1
 - Update to XRootD 5.9.7 (SOFTWARE-6385)
   (all patches kept)
