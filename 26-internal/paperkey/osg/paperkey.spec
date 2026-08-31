@@ -1,6 +1,6 @@
 Name:      paperkey
 Version:   1.6
-Release:   1.1%{?dist}
+Release:   1.2%{?dist}
 Summary:   An OpenPGP key archiver
 Group:	   Applications/Archiving
 License:   GPLv2+
@@ -22,6 +22,11 @@ restoring a key.
 %setup -q
 
 %build
+# Paperkey does not build on x86_64_v2
+%if 0%{?x86_64_v2}
+%global _host x86_64-redhat-linux
+%endif
+
 %configure
 make %{?_smp_mflags} check
 
@@ -41,6 +46,9 @@ rm -rf "$RPM_BUILD_ROOT"
 %{_mandir}/man1/%{name}.1.gz
 
 %changelog
+* Mon Aug 31 2026 Matt Westphall <westphall@wisc.edu>
+- Update %build to work-around x86_64_v2 build failures
+
 * Mon Sep  5 2016 David Shaw <dshaw@jabberwocky.com>
 - Use %license for the COPYING file and run the self checks during build.
 
