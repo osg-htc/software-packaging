@@ -10,8 +10,8 @@ Subject: [PATCH] increasing buffer size at replaceWithRegexp to avoid
 
 diff --git a/src/XrdCmsTfc.cc b/src/XrdCmsTfc.cc
 index 3babbaa..04062f1 100644
---- a/xrootd-cmstfc-1.5.2/src/XrdCmsTfc.cc
-+++ b/xrootd-cmstfc-1.5.2/src/XrdCmsTfc.cc
+--- a/src/XrdCmsTfc.cc
++++ b/src/XrdCmsTfc.cc
 @@ -355,7 +355,7 @@ std::string replaceWithRegexp (const int ovector[OVECCOUNT], const int rc,
  {
      //std::cerr << "InputString:" << inputString << std::endl;

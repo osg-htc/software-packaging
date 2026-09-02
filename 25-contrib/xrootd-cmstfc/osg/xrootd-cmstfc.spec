@@ -1,6 +1,6 @@
 Name: xrootd-cmstfc
 Version: 1.5.2
-Release: 9%{?dist}
+Release: 10%{?dist}
 Summary: CMS TFC plugin for xrootd
 
 Group: System Environment/Daemons
@@ -10,6 +10,7 @@ URL: https://github.com/bbockelm/xrootd-cmstfc
 # git-archive master | gzip -7 > ~/rpmbuild/SOURCES/xrootd-lcmaps.tar.gz
 Source0: %{name}.tar.gz
 Patch0: buff_size.patch
+Patch1: pcre.patch
 
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
@@ -21,27 +22,22 @@ BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 %global __cmake_in_source_build 1
 %endif
 
-%define xrootd_current_major 5
-%define xrootd_next_major 6
+%bcond_with xrootd6
 
-BuildRequires: xrootd-devel >= 1:%{xrootd_current_major}.0.0-1
-BuildRequires: xrootd-devel <  1:%{xrootd_next_major}.0.0-1
-BuildRequires: pcre-devel
+%if %{with xrootd6}
+BuildRequires: xrootd-devel >= 1:6, xrootd-devel < 1:7
+%else
+BuildRequires: xrootd-devel >= 1:5, xrootd-devel < 1:6
+%endif
+
+BuildRequires: pcre2-devel
 
 BuildRequires: xerces-c-devel
 
 BuildRequires: cmake
-#BuildRequires: xrootd-compat-libs
 
-Requires: /usr/bin/xrootd pcre xerces-c
-#Requires: xrootd-compat-libs
+Requires: /usr/bin/xrootd pcre2 xerces-c
 
-#%if 0%%{?rhel} < 7
-#Requires: xrootd4 >= 1:4.1.0
-#%else
-Requires: xrootd >= 1:%{xrootd_current_major}.0.0-1
-Requires: xrootd <  1:%{xrootd_next_major}.0.0-1
-#%endif
 
 %package devel
 Summary: Development headers and libraries for Xrootd CMSTFC plugin
@@ -55,7 +51,10 @@ Group: System Environment/Development
 
 %prep
 %setup -q -c -n %{name}-%{version}
+cd %{name}-%{version}
 %patch0 -p1
+%patch1 -p1
+cd ..
  
 %build
 cd %{name}-%{version}
@@ -73,18 +72,18 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %{_libdir}/libXrdCmsTfc.so
-%if 0%{?rhel} < 8
-%{_libdir}/libXrdCmsTfc.so.*
-%endif
 %files devel
 %defattr(-,root,root,-)
 %{_includedir}/XrdCmsTfc.hh
 
 %changelog
+* Wed Sep 02 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1.5.2-10
+- Add pcre2 patch for EL10 support and add xrootd6 build conditional (SOFTWARE-6419)
+
 * Wed Sep 24 2025 Mátyás Selmeci <mselmeci@wisc.edu> - 1.5.2-9
 - Bump to rebuild for x86_64 on EL10
 
-* Wed Jun 4 2024 Matt Westphall <westphall@wisc.edu> - 1.5.2-8
+* Tue Jun 4 2024 Matt Westphall <westphall@wisc.edu> - 1.5.2-8
 - Bump release to test new build targets (SOFTWARE-5702)
 
 * Fri Jul 28 2023 Mátyás Selmeci <matyas@cs.wisc.edu> - 1.5.2-7
