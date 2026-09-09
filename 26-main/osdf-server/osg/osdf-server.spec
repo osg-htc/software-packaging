@@ -1,7 +1,7 @@
 Summary: Service files for Pelican-based OSDF daemons
 Name: osdf-server
-Version: 25
-Release: 4%{?dist}
+Version: 26
+Release: 1%{?dist}
 License: ASL 2.0
 Url: https://github.com/PelicanPlatform/pelican
 BuildArch: noarch
@@ -13,7 +13,10 @@ Source1: 15-osdf.yaml
 Source2: 20-cache.yaml
 Source3: 50-webui.yaml
 
-Requires: pelican-server >= 7.19
+# The strange version requirement is so that release candidates for 26.0.0
+# still satisfy it.
+Requires: pelican-server > 25.99
+Requires: xrootd-server >= 1:6.1.1
 Requires: xrootd-multiuser
 Requires: xrdcl-pelican
 Requires: xrootd-s3-http >= 0.6.5
@@ -232,6 +235,11 @@ fi
 
 
 %changelog
+* Wed Sep 09 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 26-1
+- Initial release for OSG 26
+- Bump Pelican version requirement to 26
+- Add version dependency on XRootD 6
+
 * Fri Jul 24 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 25-4
 - Bump xrootd-s3-http minimum version to 0.6.5 and enable for el8 (SOFTWARE-6302)
 
