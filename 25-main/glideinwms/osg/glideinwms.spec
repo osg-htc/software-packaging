@@ -4,7 +4,7 @@
 # Disable shebang mangling (see GHI#436)
 %undefine __brp_mangle_shebangs
 
-# There is no debud package, disable auto-detect
+# There is no debug package, disable auto-detect
 %define  debug_package %{nil}
 
 # How to build tar file
@@ -22,8 +22,8 @@
 # ------------------------------------------------------------------------------
 # For Release Candidate builds, check with Software team on release string
 # ------------------------------------------------------------------------------
-%global version 3.10.18
-%global release 1
+%global version 3.10.19
+%global release 0.1.rc1
 
 %global frontend_xml frontend.xml
 %global factory_xml glideinWMS.xml
@@ -1105,6 +1105,11 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Sep 9 2026 Marco Mambelli <marcom@fnal.gov> - 3.10.19-01.rc1
+- Glideinwms v3.10.19
+- Release Notes: http://glideinwms.fnal.gov/doc.v3_10_19/history.html
+- Release candidates 3.10.19-01.rc1
+
 * Fri Apr 17 2026 Marco Mambelli <marcom@fnal.gov> - 3.10.18
 - Glideinwms v3.10.18
 - Release Notes: http://glideinwms.fnal.gov/doc.v3_10_18/history.html
