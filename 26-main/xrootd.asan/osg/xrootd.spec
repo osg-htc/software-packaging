@@ -1,4 +1,4 @@
-%bcond_with    asan
+%bcond_without asan
 %bcond_with    ceph
 %bcond_with    clang
 %if 0%{?osg:1}%{!?osg:0}
@@ -21,7 +21,7 @@
 
 Name:		xrootd
 Epoch:		1
-Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.1%{?with_clang:.clang}%{?with_asan:.asan}%{?dist}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
