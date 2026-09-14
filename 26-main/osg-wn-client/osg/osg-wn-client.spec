@@ -1,7 +1,7 @@
 Name:      osg-wn-client
 Summary:   OSG Worker-Node Client
 Version:   26
-Release:   1%{?dist}
+Release:   2%{?dist}
 License:   Apache 2.0
 URL:       http://www.opensciencegrid.org
 BuildArch: noarch
@@ -17,17 +17,15 @@ Requires: grid-certificates >= 7
 
 Requires: fetch-crl
 Requires: osg-system-profiler
-Requires: stashcp
+Requires: /usr/bin/pelican
 Requires: vo-client
 Requires: voms-clients-cpp
 
-%if 0%{?rhel} <= 9
 Requires: gfal2
 Requires: python3-gfal2-util
 Requires: gfal2-plugin-http
 Requires: gfal2-plugin-file
-Recommends: gfal2-plugin-xrootd
-%endif
+Requires: gfal2-plugin-xrootd
 
 %description
 %{summary}
@@ -49,6 +47,11 @@ EOF
 %config(noreplace) %{_prefix}/etc/globus-user-env.sh
 
 %changelog
+* Mon Sep 14 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 26-2
+- Require pelican instead of stashcp
+- Require gfal2, including gfal2-plugin-xrootd, even on EL10, since it is
+  included in the OSG 26 repos (built against XRootD 6)
+
 * Mon Aug 31 2026 Matt Westphall <westphall@wisc.edu> - 26-1
 - Initial OSG 26 build
 
