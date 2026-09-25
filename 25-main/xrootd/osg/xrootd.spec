@@ -7,7 +7,7 @@
     %bcond_with    compat
 %endif
 
-%bcond_without asan
+%bcond_with    asan
 %bcond_with    ceph
 %bcond_with    clang
 %if 0%{?osg:1}%{!?osg:0}
