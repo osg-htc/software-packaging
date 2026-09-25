@@ -7,7 +7,7 @@
     %bcond_with    compat
 %endif
 
-%bcond_with    asan
+%bcond_without asan
 %bcond_with    ceph
 %bcond_with    clang
 %if 0%{?osg:1}%{!?osg:0}
@@ -44,14 +44,14 @@
 #-------------------------------------------------------------------------------
 Name:		xrootd
 Epoch:		1
-Release:	1.2%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
 URL:		https://xrootd.org
 
 %if !%{with git}
-Version:	5.9.7
+Version:	5.9.8
 Source0:	https://xrootd.web.cern.ch/download/v%{version}/%{name}-%{version}.tar.gz
 %else
 %define git_version %(tar xzf %{_sourcedir}/%{name}.tar.gz -O xrootd/VERSION)
@@ -967,6 +967,10 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Fri Sep 25 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.8-1.1
+- Update to XRootD 5.9.8 (SOFTWARE-6427)
+  (all patches kept)
+
 * Mon Aug 31 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.7-1.2
 - Add 0008-58-Wait-for-in-flight-protocol-dispatch-before-recyc~084e381.patch (SOFTWARE-6385)
 

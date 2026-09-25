@@ -1,7 +1,7 @@
-From d16f9b59e4337c865ecc0c28985e30717fa218e9 Mon Sep 17 00:00:00 2001
+From 4109e0850235a57737214ba5906160a640920430 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Wed, 15 Jan 2025 08:01:58 -0600
-Subject: [PATCH 1/7] [#1] Allow hostname used by XRootD to be overridden by
+Subject: [PATCH 1/8] [#1] Allow hostname used by XRootD to be overridden by
  env var.
 
 This affects how the host advertises itself to other servers in a cluster

@@ -1,7 +1,7 @@
-From 71cc98f02df3e4803460f3b3563f57c6e08bf4e5 Mon Sep 17 00:00:00 2001
+From f05d88fa1234a54a4cf758bd01e58d65b036412a Mon Sep 17 00:00:00 2001
 From: Howard Zhong <hzhong45@wisc.edu>
 Date: Tue, 7 Jul 2026 17:23:32 +0000
-Subject: [PATCH 7/7] [#55] [XrdPfc] Backstop crash from negative dir count in
+Subject: [PATCH 7/8] [#55] [XrdPfc] Backstop crash from negative dir count in
  purge check
 
 A negative root directory count, converted to size_t, makes

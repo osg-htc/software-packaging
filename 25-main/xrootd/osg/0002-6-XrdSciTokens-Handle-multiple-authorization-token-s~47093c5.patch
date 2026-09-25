@@ -1,7 +1,7 @@
-From 6c8bd4f62e8447d16f8daea5a21bc9d72dbfce32 Mon Sep 17 00:00:00 2001
+From f1139a246e8d6a2e252cb9300c5b9f9435874501 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Tue, 28 Jan 2025 09:57:02 -0600
-Subject: [PATCH 2/7] [#6] [XrdSciTokens] Handle multiple authorization token
+Subject: [PATCH 2/8] [#6] [XrdSciTokens] Handle multiple authorization token
  setups
 
 ---
