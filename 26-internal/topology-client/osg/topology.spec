@@ -78,7 +78,7 @@ install -D -m 0644 topology-cacher.cron %{buildroot}/etc/cron.d/topology-cacher.
 * Mon Oct 05 2026 Matt Westphall <westphall@wisc.edu> - 1.73.1-1
 - Update osg-notify to clearsign emails
 
-* Mon Mar 17 2026 Matt Westphall <westphall@wisc.edu> - 1.69.1-2
+* Mon Mar 16 2026 Matt Westphall <westphall@wisc.edu> - 1.69.1-2
 - Add workaround for missing python3-gnupg package in EL10 EPEL
 
 * Mon Feb 2 2026 Matt Westphall <westphall@wisc.edu> - 1.69.1-1
