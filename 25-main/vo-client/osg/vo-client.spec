@@ -4,8 +4,8 @@
 %define delete_voms2_prod_vomses()    sed -Ei '/.*voms2-'%1'-auth.cern.ch.*/d' vomses
 
 Name:           vo-client
-Version:        142
-Release:        2%{?dist}
+Version:        143
+Release:        1%{?dist}
 Summary:        Contains vomses file for use with user authentication
 
 License:        Apache 2.0
@@ -15,7 +15,7 @@ BuildArch:      noarch
 Suggests: osg-ca-certs
 Requires: grid-certificates >= 7
 
-Source0:        %{name}-%{version}-2.tar.gz
+Source0:        %{name}-%{version}.tar.gz
 
 # See
 # https://github.com/opensciencegrid/osg-vo-config#readme
@@ -41,7 +41,7 @@ Requires:       %{name} = %{version}-%{release}
 
 
 %prep
-%setup -n %{name}-%{version}-2
+%setup
 
 %build
 make
@@ -102,6 +102,9 @@ find $RPM_BUILD_ROOT/%{_sysconfdir}/grid-security/vomsdir -type d -exec chmod 75
 %config(noreplace) %{_datadir}/osg/grid-vorolemap
 
 %changelog
+* Wed Oct 05 2026 Matt Westphall <westphall@wisc.edu> - 143-1
+- Update DN of LSST VO voms server (SOFTWARE-6433)
+
 * Wed May 06 2026 Matt Westphall <westphall@wisc.edu> - 142-2
 - Don't advertise new endpoints in vomses file yet (SOFTWARE-6344)
 
