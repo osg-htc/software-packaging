@@ -41,7 +41,7 @@ A utility for periodically downloading OSG Topology data.
 %prep
 %setup -q -n topology-%{version}
 %if 0%{?el10}
-%patch0 -p1
+%patch -P 0 -p1
 %endif
 
 
