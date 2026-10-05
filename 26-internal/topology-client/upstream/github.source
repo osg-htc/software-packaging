@@ -1,0 +1,2 @@
+#type=github repo=opensciencegrid/topology name=topology tag=v1.4.6 hash=7ea1aa2236fb8d652264545f6bf65e249df5a7d0
+type=github repo=opensciencegrid/topology name=topology tag=v1.73.0 tarball=topology-1.73.0.tar.gz hash=4177173f21e2cc572bb58a9cf40fa9d809fc942c
