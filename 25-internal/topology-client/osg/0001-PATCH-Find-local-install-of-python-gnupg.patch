@@ -1,19 +1,19 @@
-From 4568f9ec07989c2da2600513ba95af0ae25ba616 Mon Sep 17 00:00:00 2001
+From 811da1f4bac42d1dc761f1b5ee69b88616982e5a Mon Sep 17 00:00:00 2001
 From: Matthew Westphall <westphall@wisc.edu>
-Date: Tue, 17 Mar 2026 11:32:47 -0500
-Subject: [PATCH] [PATCH] Find local install of python-gnupg
+Date: Tue, 6 Oct 2026 09:01:47 -0500
+Subject: [PATCH] Find local install of python-gnupg
 
 ---
  bin/osg-notify | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/bin/osg-notify b/bin/osg-notify
-index 85eb77a86..0e172aa3f 100755
+index 375299b45..a82db791c 100755
 --- a/bin/osg-notify
 +++ b/bin/osg-notify
-@@ -14,6 +14,7 @@ import email.message
+@@ -12,6 +12,7 @@ import smtplib
+ import argparse
  import email.mime.text
- import email.mime.multipart
  
 +sys.path.append("/usr/lib/topology-client")
  import gnupg

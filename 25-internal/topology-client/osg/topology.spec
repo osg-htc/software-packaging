@@ -1,8 +1,8 @@
 
 Summary: Client tools for OSG Topology
 Name: topology-client
-Version: 1.69.1
-Release: 2%{?dist}
+Version: 1.73.0
+Release: 1%{?dist}
 Source: topology-%{version}.tar.gz
 License: Apache 2.0
 BuildArch: noarch
@@ -41,7 +41,7 @@ A utility for periodically downloading OSG Topology data.
 %prep
 %setup -q -n topology-%{version}
 %if 0%{?el10}
-%patch0 -p1
+%patch -P 0 -p1
 %endif
 
 
@@ -75,7 +75,10 @@ install -D -m 0644 topology-cacher.cron %{buildroot}/etc/cron.d/topology-cacher.
 
 
 %changelog
-* Mon Mar 17 2026 Matt Westphall <westphall@wisc.edu> - 1.69.1-2
+* Mon Oct 05 2026 Matt Westphall <westphall@wisc.edu> - 1.73.1-1
+- Update osg-notify to clearsign emails
+
+* Mon Mar 16 2026 Matt Westphall <westphall@wisc.edu> - 1.69.1-2
 - Add workaround for missing python3-gnupg package in EL10 EPEL
 
 * Mon Feb 2 2026 Matt Westphall <westphall@wisc.edu> - 1.69.1-1
