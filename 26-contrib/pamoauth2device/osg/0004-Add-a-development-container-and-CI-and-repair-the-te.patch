@@ -1,0 +1,709 @@
+From 67f4341eeadc3b5d19d6ebb86d81b3c026babde8 Mon Sep 17 00:00:00 2001
+From: Brian Bockelman <bbockelman@morgridge.org>
+Date: Wed, 2 Sep 2026 07:48:58 -0500
+Subject: [PATCH 4/6] Add a development container and CI, and repair the test
+ suite
+
+The test suite did not build, so there was no green baseline to work from and
+no way to tell whether a change broke anything.  This gets one running, in a
+reproducible environment, on every push and pull request.
+
+Config had no constructor, so the bool and int members of a Config that is
+never load()ed held indeterminate values.  Config::load() applies defaults for
+all of them, but the unit tests construct a Config directly and read
+http_basic_auth from it, which made their behaviour depend on the stack.  They
+are now initialized in-class to the values load() applies.
+
+test_pam_oauth2_device had not been updated for the pam_oauth2_curl and
+pam_oauth2_log refactoring: it called the pre-refactoring signatures and
+default-constructed a pam_oauth2_log, which no longer has a default
+constructor.  pam_oauth2_device.hpp used Config in its declarations without
+including config.hpp, and only compiled because the .cpp included it first.
+The tests also passed credentials only as function arguments, where
+pam_oauth2_curl takes them from the Config, so the module sent "Basic Og==" --
+an empty user and password -- and mock_server rejected it; they now populate
+the Config the way pam_sm_authenticate does.  mock_server accepts credentials
+by HTTP Basic auth or in the request body, as RFC 6749 section 2.3.1 permits,
+rather than only the latter.  Two ConfigTest cases expected a json::parse_error
+where read_file() now throws std::runtime_error, and a usermap from before the
+*bypass* entry was added.
+
+test_pam_oauth2_device also needs mock_server.py listening on port 8042, which
+had to be started by hand, so `make test` failed unless you had read
+test/README.md first.  test/run_tests.sh now starts it, waits for it to accept
+connections, runs the binaries and shuts it down.
+
+.devcontainer builds on AlmaLinux 9, close to the platforms the module is
+packaged for and overridable through IMAGE_BASE, carrying the compiler, the
+PAM/curl/LDAP headers, GoogleTest, pamtester, gdb and valgrind, and running as
+an unprivileged uid 1000 so a bind-mounted checkout stays writable.
+
+CI builds and tests on AlmaLinux 8 and 9 and separately builds the dev
+container and runs the same suite inside it, so the two cannot drift apart.
+EL8 needs two workarounds -- its image ships a GPG key older than the metadata
+its repositories are signed with, and gtest-devel is in PowerTools there rather
+than EPEL -- and both must be applied only on EL8: the key is SHA1-signed and
+EL9's crypto policy rejects it, failing the step outright.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+---
+ .devcontainer/Dockerfile        | 49 +++++++++++++++++++++
+ .devcontainer/devcontainer.json | 31 +++++++++++++
+ .devcontainer/post-create.sh    | 16 +++++++
+ .github/workflows/ci.yml        | 78 +++++++++++++++++++++++++++++++++
+ .gitignore                      |  9 ++++
+ Makefile                        |  2 +-
+ README.md                       | 29 +++++++++++-
+ src/include/config.hpp          | 14 +++---
+ src/pam_oauth2_device.hpp       |  1 +
+ test/Makefile                   | 13 ++++--
+ test/README.md                  | 32 ++++++++++++--
+ test/mock_server.py             | 32 ++++++++++----
+ test/run_tests.sh               | 62 ++++++++++++++++++++++++++
+ test/test_config.cpp            | 16 +++++--
+ test/test_pam_oauth2_device.cpp | 66 +++++++++++++++++++++-------
+ 15 files changed, 406 insertions(+), 44 deletions(-)
+ create mode 100644 .devcontainer/Dockerfile
+ create mode 100644 .devcontainer/devcontainer.json
+ create mode 100755 .devcontainer/post-create.sh
+ create mode 100644 .github/workflows/ci.yml
+ create mode 100755 test/run_tests.sh
+
+diff --git a/.devcontainer/Dockerfile b/.devcontainer/Dockerfile
+new file mode 100644
+index 0000000..f17de8e
+--- /dev/null
++++ b/.devcontainer/Dockerfile
+@@ -0,0 +1,49 @@
++# Development container for pam_oauth2_device.
++#
++# Based on AlmaLinux to stay close to the platforms the module is actually
++# packaged for (see packaging/rpm).  Override with --build-arg IMAGE_BASE to
++# develop against a different EL release.
++ARG IMAGE_BASE=quay.io/almalinux/almalinux:9
++
++FROM $IMAGE_BASE
++
++ARG USERNAME=vscode
++ARG USER_UID=1000
++ARG USER_GID=$USER_UID
++
++RUN dnf install -y epel-release \
++ && dnf install -y \
++    ca-certificates \
++    clang-tools-extra \
++    diffutils \
++    gcc \
++    gcc-c++ \
++    gdb \
++    git \
++    gtest-devel \
++    less \
++    libcurl-devel \
++    make \
++    openldap-devel \
++    openssh-clients \
++    pam-devel \
++    pamtester \
++    procps-ng \
++    python3 \
++    rpm-build \
++    rpmlint \
++    sudo \
++    valgrind \
++    which \
++ && dnf clean all \
++ && rm -rf /var/cache/dnf
++
++# Unprivileged user matching the typical host UID so bind-mounted sources stay
++# writable.
++RUN groupadd --gid $USER_GID $USERNAME \
++ && useradd --uid $USER_UID --gid $USER_GID --create-home --shell /bin/bash $USERNAME \
++ && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
++ && chmod 0440 /etc/sudoers.d/$USERNAME
++
++USER $USERNAME
++WORKDIR /workspaces/pam_oauth2_device
+diff --git a/.devcontainer/devcontainer.json b/.devcontainer/devcontainer.json
+new file mode 100644
+index 0000000..bdf8930
+--- /dev/null
++++ b/.devcontainer/devcontainer.json
+@@ -0,0 +1,31 @@
++{
++  "name": "pam_oauth2_device",
++  "build": {
++    "dockerfile": "Dockerfile",
++    "args": {
++      "IMAGE_BASE": "quay.io/almalinux/almalinux:9"
++    }
++  },
++  "workspaceFolder": "/workspaces/pam_oauth2_device",
++  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/pam_oauth2_device,type=bind",
++  "remoteUser": "vscode",
++  "postCreateCommand": ".devcontainer/post-create.sh",
++  "customizations": {
++    "vscode": {
++      "extensions": [
++        "ms-vscode.cpptools",
++        "ms-vscode.makefile-tools",
++        "ms-python.python"
++      ],
++      "settings": {
++        "C_Cpp.default.cppStandard": "c++11",
++        "C_Cpp.default.includePath": [
++          "${workspaceFolder}/src",
++          "${workspaceFolder}/src/include"
++        ],
++        "files.trimTrailingWhitespace": true,
++        "files.insertFinalNewline": true
++      }
++    }
++  }
++}
+diff --git a/.devcontainer/post-create.sh b/.devcontainer/post-create.sh
+new file mode 100755
+index 0000000..daac763
+--- /dev/null
++++ b/.devcontainer/post-create.sh
+@@ -0,0 +1,16 @@
++#!/bin/bash
++# Runs once after the dev container is created.
++set -euo pipefail
++
++echo "Toolchain: $(g++ --version | head -1)"
++echo "GoogleTest: $(rpm -q gtest-devel)"
++
++cat <<'MSG'
++
++Ready.  Common tasks:
++
++  make            build pam_oauth2_device.so
++  make test       build and run the unit tests (starts the mock server)
++  make clean
++
++MSG
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..a839391
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,78 @@
++---
++name: CI
++
++on:
++  # Topic branches are covered by pull_request; running on every push as well
++  # just builds each commit of an open PR twice.
++  push:
++    branches:
++      - osg-base
++      - chtc_changes_v2
++      - master
++  pull_request:
++  workflow_dispatch:
++
++# A new push to a branch makes the run already in flight for it pointless.
++concurrency:
++  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
++  cancel-in-progress: true
++
++jobs:
++  build-and-test:
++    name: Build and test (${{ matrix.os_base }})
++    strategy:
++      fail-fast: false
++      matrix:
++        os_base:
++          - "quay.io/almalinux/almalinux:8"
++          - "quay.io/almalinux/almalinux:9"
++    runs-on: ubuntu-latest
++    container:
++      image: ${{ matrix.os_base }}
++    steps:
++      # Installed before the checkout so actions/checkout has git and tar.
++      - name: Install build dependencies
++        run: |
++          . /etc/os-release
++          if [ "${VERSION_ID%%.*}" = "8" ]; then
++            # The almalinux:8 image ships a GPG key older than the metadata its
++            # repositories are now signed with.  EL9 neither needs this nor
++            # accepts it: the key is SHA1-signed, which its crypto policy
++            # refuses, so importing it there fails the whole step.
++            rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux
++            # gtest-devel is in PowerTools on EL8; on EL9 EPEL carries it.
++            dnf install -y dnf-plugins-core
++            dnf config-manager --set-enabled powertools
++          fi
++          dnf install -y epel-release
++          dnf install -y \
++            gcc \
++            gcc-c++ \
++            git \
++            gtest-devel \
++            libcurl-devel \
++            make \
++            openldap-devel \
++            pam-devel \
++            python3 \
++            tar
++
++      - uses: actions/checkout@v4
++
++      - name: Build module
++        run: make
++
++      - name: Run unit tests
++        run: make test
++
++  devcontainer:
++    name: Dev container builds and passes tests
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++
++      - name: Build the dev container and run the test suite in it
++        uses: devcontainers/ci@v0.3
++        with:
++          push: never
++          runCmd: make && make test
+diff --git a/.gitignore b/.gitignore
+index 9bdbd33..449a761 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -227,3 +227,12 @@ fabric.properties
+ 
+ # Google C++ test library
+ googletest*
++
++# Build outputs
++pam_oauth2_device.so
++
++# Test binaries
++/test/test_config
++/test/test_pam_oauth2_device
++/test/test_pam_oauth2_curl
++/test/unit
+diff --git a/Makefile b/Makefile
+index d33d8b5..dde4441 100644
+--- a/Makefile
++++ b/Makefile
+@@ -38,4 +38,4 @@ install: pam_oauth2_device.so
+ .PHONY: test tests
+ 
+ test tests:
+-	make -C test
++	$(MAKE) -C test check
+diff --git a/README.md b/README.md
+index 324c2e1..2329048 100644
+--- a/README.md
++++ b/README.md
+@@ -14,9 +14,9 @@ This code was originally developed by [Mazarykova Univerzita](https://github.com
+ ## Build
+ 
+ The upstream build uses basic `make` and we have stuck with this for compatibility reasons.
+-The two basic targets are `make` and `make test`; the latter will build (some of) the tests and run them.
++The two basic targets are `make` and `make test`; the latter builds the tests and
++runs them, starting the OAuth2 mock server they need for the duration of the run.
+ 
+-* Note that at present some of the integration tests are failing.
+ * Note you can build RPMs and DEBs, though currently they are designed for CentOS7 and Ubuntu 18.04 respectively.
+   * The build currently requires Docker (or compatible)
+ 
+@@ -40,6 +40,31 @@ sudo dnf install pamtester
+ ```
+ 
+ 
++### Development container
++
++The repository ships a dev container (see [`.devcontainer`](.devcontainer)) with
++the compiler, the PAM/curl/LDAP headers, GoogleTest and `pamtester` already
++installed.  Open the repository in VS Code and choose *Reopen in Container*, or
++use the `devcontainer` CLI:
++
++```
++devcontainer up --workspace-folder .
++devcontainer exec --workspace-folder . make test
++```
++
++It is based on AlmaLinux 9 to stay close to the platforms the module is packaged
++for; build with `--build-arg IMAGE_BASE=...` to target a different EL release.
++
++
++### Manual build dependencies (AlmaLinux/Rocky 8 and 9)
++
++```
++dnf install -y epel-release
++dnf config-manager --set-enabled powertools   # EL8 only; gtest-devel lives there
++dnf install -y gcc gcc-c++ make libcurl-devel openldap-devel pam-devel gtest-devel python3
++```
++
++
+ ### Manual Build on Scientific Linux or CentOS7
+ 
+ ```
+diff --git a/src/include/config.hpp b/src/include/config.hpp
+index 5628adf..a71d73d 100644
+--- a/src/include/config.hpp
++++ b/src/include/config.hpp
+@@ -32,12 +32,14 @@ public:
+         cloud_username,
+         local_username_suffix,
+         metadata_file;
+-    int qr_error_correction_level;
+-    bool group_access,
+-         cloud_access,
+-         group_and_username_access,
+-         http_basic_auth,
+-         client_debug;
++    // Defaults mirror the ones applied by Config::load(); they matter for
++    // Config objects that are never load()ed, e.g. in the unit tests.
++    int qr_error_correction_level = -1;
++    bool group_access = false,
++         cloud_access = false,
++         group_and_username_access = false,
++         http_basic_auth = true,
++         client_debug = false;
+     std::map<std::string, std::set<std::string>> usermap;
+ };
+ 
+diff --git a/src/pam_oauth2_device.hpp b/src/pam_oauth2_device.hpp
+index 2eeb17e..994da1d 100644
+--- a/src/pam_oauth2_device.hpp
++++ b/src/pam_oauth2_device.hpp
+@@ -4,6 +4,7 @@
+ #include <string>
+ #include <cstdio>
+ #include "include/pam_oauth2_log.hpp"
++#include "include/config.hpp"
+ 
+ 
+ /*! @brief userinfo type object (cf RFC 7662)
+diff --git a/test/Makefile b/test/Makefile
+index fd980a4..4be5e44 100644
+--- a/test/Makefile
++++ b/test/Makefile
+@@ -25,11 +25,15 @@ objects = $(SRC_DIR)/pam_oauth2_device.o \
+ 		  $(SRC_DIR)/include/pam_oauth2_curl.o \
+ 		  $(SRC_DIR)/include/pam_oauth2_log.o
+ 
++.PHONY: all check clean distclean
++
+ all: $(TESTS)
+-	for test in $(TESTS); do ./$${test}; done
+ 
++# run_tests.sh starts mock_server.py, waits for it to listen, runs each test
++# binary and shuts the server down again.
++check: $(TESTS)
++	./run_tests.sh $(TESTS)
+ 
+-.PHONY: clean distclean
+ 
+ clean:
+ 	rm -f gtest.a gtest_main.a *.o $(objects) unit.o temp_file.o test_pam_oauth2_device.o
+@@ -40,8 +44,11 @@ distclean: clean
+ # System libraries for gtest (includes the default main function)
+ GTEST_LIBS = -lgtest_main -lgtest -lpthread
+ 
++CC ?= cc
++CFLAGS += -g -Wall -Wextra
++
+ %.o: %.c %.h
+-	$(CXX) $(CXXFLAGS) -c $< -o $@
++	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+ 
+ test_config.o: test_config.cpp $(GTEST_HEADERS) $(SRC_DIR)/include/config.hpp
+ 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(SRC_DIR) -c test_config.cpp
+diff --git a/test/README.md b/test/README.md
+index 3b9766c..b1b4d11 100644
+--- a/test/README.md
++++ b/test/README.md
+@@ -1,5 +1,31 @@
+ # PAM module testing
+ 
+-1. Install Google test (the build assumes a standard system install)
+-2. Run mock server `./mock_server.py`.
+-3. In a new terminal window execute `make` to run the tests.
++The tests need the GoogleTest development files (`gtest-devel` on EL,
++`libgtest-dev` on Debian/Ubuntu); they are already installed in the dev
++container, see [`../.devcontainer`](../.devcontainer).
++
++From the top of the tree:
++
++```
++make test
++```
++
++That builds the three test binaries and runs them via `run_tests.sh`, which
++starts `mock_server.py` on port 8042 for the duration of the run and shuts it
++down afterwards.  Equivalently, from this directory:
++
++```
++make check
++```
++
++To build the binaries without running them, use `make`.  Individual binaries can
++be run by hand, but `test_pam_oauth2_device` needs the mock server, so either
++start `./mock_server.py` in another terminal first or invoke it through
++`./run_tests.sh test_pam_oauth2_device`.
++
++## The test binaries
++
++  * `test_config` - configuration file parsing, against the fixtures in `data/`
++    and against `../config_template.json`.
++  * `unit` - QR code rendering and the authorization decision logic.
++  * `test_pam_oauth2_device` - the OAuth2 device flow against `mock_server.py`.
+diff --git a/test/mock_server.py b/test/mock_server.py
+index 5215349..b3c12a0 100755
+--- a/test/mock_server.py
++++ b/test/mock_server.py
+@@ -38,12 +38,30 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
+         else:
+             self.send_response(404)
+             self.end_headers()
++    def client_authenticated(self, post_data):
++        """Check the client credentials.
++
++        RFC 6749 section 2.3.1 lets a client authenticate either with HTTP
++        Basic auth or by passing the credentials in the request body, and the
++        module picks between the two based on the http_basic_auth setting.
++        Accept both, but require correct credentials either way.
++        """
++        auth = self.headers.get('Authorization', '')
++        if auth.startswith('Basic '):
++            try:
++                decoded = base64.b64decode(auth.split()[1]).decode()
++            except (IndexError, ValueError):
++                return False
++            return decoded == '{}:{}'.format(self.CLIENT_ID, self.CLIENT_SECRET)
++        return (post_data.get('client_id') == [self.CLIENT_ID] and
++                post_data.get('client_secret') == [self.CLIENT_SECRET])
++
+     def do_POST(self):
+         body = self.rfile.read(int(self.headers['Content-Length'])).decode()
+         post_data = parse_qs(body)
+         if re.search(self.DEVICECODE_PATTERN, self.path):
+-            if (post_data['client_id'] == [self.CLIENT_ID] and
+-                    post_data['scope'] == [self.SCOPE]):
++            if (self.client_authenticated(post_data) and
++                    post_data.get('scope') == [self.SCOPE]):
+                 response_data = {
+                     'user_code': self.USER_CODE,
+                     'verification_uri': self.VERIFICATION_URL,
+@@ -60,13 +78,9 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
+                 self.send_response(403)
+                 self.end_headers()
+         elif re.search(self.TOKEN_PATTERN, self.path):
+-            auth = self.headers.get('Authorization', '')
+-            if (post_data['client_id'] == [self.CLIENT_ID] and
+-                    post_data['device_code'] == [self.DEVICE_CODE] and
+-                    post_data['grant_type'] == ['urn:ietf:params:oauth:grant-type:device_code'] and
+-                    'Basic' in auth and
+-                    base64.b64decode(auth.split()[1]).decode() == '{}:{}'.format(
+-                        self.CLIENT_ID, self.CLIENT_SECRET)):
++            if (self.client_authenticated(post_data) and
++                    post_data.get('device_code') == [self.DEVICE_CODE] and
++                    post_data.get('grant_type') == ['urn:ietf:params:oauth:grant-type:device_code']):
+                 response_data = {
+                     'access_token': self.ACCESS_TOKEN,
+                     'error': None,
+diff --git a/test/run_tests.sh b/test/run_tests.sh
+new file mode 100755
+index 0000000..c923e12
+--- /dev/null
++++ b/test/run_tests.sh
+@@ -0,0 +1,62 @@
++#!/bin/bash
++# Runs the given test binaries with the OAuth2 mock server listening on
++# localhost:8042, then shuts the server down again.
++#
++# Usage: ./run_tests.sh test_config test_pam_oauth2_device
++set -euo pipefail
++
++cd "$(dirname "$0")"
++
++PORT=8042
++PYTHON=${PYTHON:-python3}
++
++if [ $# -eq 0 ]; then
++    echo "usage: $0 TEST [TEST...]" >&2
++    exit 2
++fi
++
++"$PYTHON" ./mock_server.py &
++MOCK_PID=$!
++
++cleanup() {
++    kill "$MOCK_PID" 2>/dev/null || true
++    wait "$MOCK_PID" 2>/dev/null || true
++}
++trap cleanup EXIT
++
++# Wait for the mock server to accept connections (up to ~10s).
++for _ in $(seq 1 100); do
++    if ! kill -0 "$MOCK_PID" 2>/dev/null; then
++        echo "mock server exited before it started listening" >&2
++        exit 1
++    fi
++    if "$PYTHON" -c "
++import socket, sys
++s = socket.socket()
++s.settimeout(0.5)
++sys.exit(0 if s.connect_ex(('127.0.0.1', $PORT)) == 0 else 1)
++"; then
++        break
++    fi
++    sleep 0.1
++done || true
++
++if ! "$PYTHON" -c "
++import socket, sys
++s = socket.socket()
++s.settimeout(0.5)
++sys.exit(0 if s.connect_ex(('127.0.0.1', $PORT)) == 0 else 1)
++"; then
++    echo "mock server did not start listening on port $PORT" >&2
++    exit 1
++fi
++
++status=0
++for test in "$@"; do
++    echo "== ./$test =="
++    if ! "./$test"; then
++        status=1
++    fi
++done
++
++exit $status
+diff --git a/test/test_config.cpp b/test/test_config.cpp
+index 477b53a..20c7659 100644
+--- a/test/test_config.cpp
++++ b/test/test_config.cpp
+@@ -12,7 +12,15 @@ namespace
+ TEST(ConfigTest, MissingFile)
+ {
+     Config config;
+-    ASSERT_THROW(config.load("data/missing.json"), json::parse_error);
++    try
++    {
++        config.load("data/missing.json");
++        FAIL() << "Expected std::runtime_error";
++    }
++    catch (std::runtime_error const &e)
++    {
++        EXPECT_STREQ("File not found: data/missing.json", e.what());
++    }
+ }
+ 
+ TEST(ConfigTest, WrongFormat)
+@@ -41,8 +49,10 @@ TEST(ConfigTest, Full)
+     config.load("../config_template.json");
+     EXPECT_EQ(config.client_id, CLIENT_ID);
+     EXPECT_EQ(config.ldap_host, "ldaps://ldap-server:636");
+-    EXPECT_EQ(config.usermap["provider_user_id_1"].count("root"), 1);
+-    EXPECT_EQ(config.usermap.size(), 2);
++    EXPECT_EQ(config.usermap["*bypass*"].count("root"), 1);
++    EXPECT_EQ(config.usermap["provider_user_id_1"].count("bob"), 1);
++    EXPECT_EQ(config.usermap["provider_user_id_2"].count("mike"), 1);
++    EXPECT_EQ(config.usermap.size(), 3);
+     EXPECT_EQ(config.qr_error_correction_level, 0);
+ }
+ 
+diff --git a/test/test_pam_oauth2_device.cpp b/test/test_pam_oauth2_device.cpp
+index fd50ca6..5fc7f1c 100644
+--- a/test/test_pam_oauth2_device.cpp
++++ b/test/test_pam_oauth2_device.cpp
+@@ -18,16 +18,40 @@
+ namespace
+ {
+ 
+-TEST(PamTest, Device)
++// These exercise the OAuth2 endpoints against test/mock_server.py, which
++// test/run_tests.sh starts for the duration of the run.
++
++//! A logger that discards everything: there is no pam handle under test.
++pam_oauth2_log test_logger()
++{
++    return pam_oauth2_log(nullptr, pam_oauth2_log::log_level_t::DEBUG);
++}
++
++/*! @brief A config holding the mock server's client credentials.
++ *
++ * pam_oauth2_curl takes the credentials it authenticates with from the Config,
++ * not from the client_id/client_secret arguments of the functions below, so
++ * the Config has to carry them just as it does in pam_sm_authenticate().
++ */
++Config test_config()
+ {
+     Config config;
+-    pam_oauth2_log logger;
++    config.client_id = CLIENT_ID;
++    config.client_secret = CLIENT_SECRET;
++    config.scope = SCOPE;
++    return config;
++}
++
++TEST(PamTest, Device)
++{
++    Config config = test_config();
++    pam_oauth2_log logger = test_logger();
+     DeviceAuthResponse response;
+     make_authorization_request(config,
+-			       logger,
+-			       CLIENT_ID,
+-                               CLIENT_SECRET,
+-                               SCOPE,
++                               logger,
++                               config.client_id,
++                               config.client_secret,
++                               config.scope,
+                                DEVICE_ENDPOINT,
+                                &response);
+     EXPECT_EQ(response.user_code, USER_CODE);
+@@ -39,24 +63,32 @@ TEST(PamTest, Device)
+ 
+ TEST(PamTest, Token)
+ {
++    Config config = test_config();
++    pam_oauth2_log logger = test_logger();
+     std::string token;
+-    poll_for_token(CLIENT_ID, CLIENT_SECRET,
++    poll_for_token(config,
++                   logger,
++                   config.client_id,
++                   config.client_secret,
+                    TOKEN_ENDPOINT,
+-                   DEVICE_CODE, token);
++                   DEVICE_CODE,
++                   token);
+     EXPECT_EQ(token, ACCESS_TOKEN);
+ }
+ 
+ TEST(PamTest, Userinfo)
+ {
+-    Userinfo userinfo;
+-    get_userinfo(USERINFO_ENDPOINT,
+-                 ACCESS_TOKEN,
+-                 USERNAME_ATTRIBUTE,
+-                 NAME_ATTRIBUTE,
+-                 &userinfo);
+-    EXPECT_EQ(userinfo.sub, "YzQ4YWIzMzJhZjc5OWFkMzgwNmEwM2M5");
+-    EXPECT_EQ(userinfo.username, "jdoe");
+-    EXPECT_EQ(userinfo.name, "Joe Doe");
++    Config config = test_config();
++    pam_oauth2_log logger = test_logger();
++    Userinfo userinfo = get_userinfo(config,
++                                     logger,
++                                     USERINFO_ENDPOINT,
++                                     ACCESS_TOKEN,
++                                     USERNAME_ATTRIBUTE,
++                                     NAME_ATTRIBUTE);
++    EXPECT_EQ(userinfo.sub(), "YzQ4YWIzMzJhZjc5OWFkMzgwNmEwM2M5");
++    EXPECT_EQ(userinfo.username(), "jdoe");
++    EXPECT_EQ(userinfo.name(), "Joe Doe");
+ }
+ 
+ } // namespace
+-- 
+2.50.1 (Apple Git-155)
+

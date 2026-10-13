@@ -1,0 +1,227 @@
+From adbf6bd159d7a9d16bec7ba297ae9712e8adb78a Mon Sep 17 00:00:00 2001
+From: Brian Bockelman <bbockelman@morgridge.org>
+Date: Wed, 2 Sep 2026 07:49:52 -0500
+Subject: [PATCH 5/6] Fix the logger: closed stderr, ignored levels, format
+ strings
+
+Four defects, found by asking what a sysadmin would have to work with when a
+login fails.
+
+The destructor called fclose() on stderr.  log_ is set to stderr rather than to
+a stream this class opened, so closing it took fd 2 away from the entire
+process and every later write by any code failed.  pam_sm_authenticate happens
+not to reach it -- client_debug is applied with set_log_level() after
+construction, leaving log_ null -- but constructing a logger at DEBUG hits it,
+and a later open() could then be handed fd 2.
+
+log(level, fmt, ...) tested only for OFF, so the log level filtered nothing and
+DEBUG messages were emitted at INFO.  One of those logs an entire userinfo
+response, so this also put more identity data in the log than an admin asked
+for.  log_this() already implemented the comparison correctly; it was never
+called.
+
+Four log calls used caught-exception text or a server response body as the
+*format string* of a printf-family call.  The is_authorized() one is the worst:
+that endpoint is called with an empty credential, so a server returning a body
+containing "%s" or "%n" gets to drive printf inside a PAM module running as
+root.  nlohmann's parse_error::what() likewise embeds the bytes it failed on.
+All four now pass the text as an argument.
+
+make_authorization_request() wrote the device authorization response to stdout
+with puts(), unconditionally, whatever the debug settings.  The response
+carries the device code, and in an sshd context fd 1 is not a log; the same
+text already went through the logger on the next line.
+
+Also terminates messages on the stderr path, which ran consecutive messages
+together, and adds tests for each of the above.
+
+Note that making the level filter work means DEBUG messages stop appearing at
+INFO.  That is the documented intent, and it is what keeps the userinfo dump
+out of syslog by default, but it is a behaviour change for anyone who was
+relying on seeing those without setting client_debug.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+---
+ src/include/pam_oauth2_log.cpp | 19 ++++++++----
+ src/pam_oauth2_device.cpp      | 16 +++++-----
+ test/unit.cpp                  | 54 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 77 insertions(+), 12 deletions(-)
+
+diff --git a/src/include/pam_oauth2_log.cpp b/src/include/pam_oauth2_log.cpp
+index 181c3ce..1f2ea0c 100644
+--- a/src/include/pam_oauth2_log.cpp
++++ b/src/include/pam_oauth2_log.cpp
+@@ -5,6 +5,7 @@
+ #include "pam_oauth2_log.hpp"
+ #include "pam_oauth2_excpt.hpp"
+ #include <syslog.h>
++#include <cstring>
+ #include <security/pam_ext.h>
+ 
+ 
+@@ -19,10 +20,11 @@ pam_oauth2_log::pam_oauth2_log(pam_handle *ph, log_level_t lev) noexcept : ph_(p
+ 
+ pam_oauth2_log::~pam_oauth2_log()
+ {
+-    if(log_) {
++    // log_ is stderr rather than a stream this class opened: closing it would
++    // take fd 2 away from the whole process.
++    if(log_ && log_ != stderr && log_ != stdout)
+         fclose(log_);
+-        log_ = nullptr;
+-    }
++    log_ = nullptr;
+ }
+ 
+ 
+@@ -108,15 +110,22 @@ pam_oauth2_log::log(BaseError const &e) noexcept
+ void
+ pam_oauth2_log::log(log_level_t level, const char *fmt, ...) noexcept
+ {
+-    if(lev_ == log_level_t::OFF)
++    // Exceptions are still logged unconditionally, as the header says.
++    if(!log_this(level))
+         return;
+     va_list ap1, ap2;
+     va_start(ap1, fmt);
+     va_copy(ap2, ap1);		// dest, src
+     if(ph_)
+         pam_vsyslog(ph_, syslog_pri(level), fmt, ap1);
+-    if(log_)
++    if(log_) {
+         vfprintf(log_, fmt, ap2);
++        // syslog does not need a terminator and most callers do not supply
++        // one, which runs consecutive messages together on stderr.
++        size_t const len = fmt ? strlen(fmt) : 0;
++        if(len == 0 || fmt[len - 1] != '\n')
++            fputc('\n', log_);
++    }
+     va_end(ap1);
+     va_end(ap2);
+ }
+diff --git a/src/pam_oauth2_device.cpp b/src/pam_oauth2_device.cpp
+index 00e5038..ba6a204 100644
+--- a/src/pam_oauth2_device.cpp
++++ b/src/pam_oauth2_device.cpp
+@@ -172,8 +172,8 @@ void make_authorization_request(const Config &config,
+ 
+     try
+     {
+-        puts(result.c_str());
+-        logger.log(pam_oauth2_log::log_level_t::DEBUG, "Response to authorization request: %s\n", result.c_str());
++        logger.log(pam_oauth2_log::log_level_t::DEBUG,
++                   "Response to authorization request: %s", result.c_str());
+         auto data = json::parse(result);
+         response->user_code = data.at("user_code");
+         response->device_code = data.at("device_code");
+@@ -377,8 +377,11 @@ bool is_authorized(Config const &config,
+         try
+         {
+ 	    // Extra if in case c_str is expensive -
++	    // result is the server's response body: it must be an argument, never
++	    // the format string, or a server that returns a "%s" or "%n" gets to
++	    // drive printf inside a PAM module.
+ 	    if(logger.log_level() == pam_oauth2_log::log_level_t::DEBUG)
+-		logger.log(pam_oauth2_log::log_level_t::DEBUG, result.c_str());
++		logger.log(pam_oauth2_log::log_level_t::DEBUG, "%s", result.c_str());
+             auto data = json::parse(result);
+             std::vector<std::string> groups = data.at("groups").get<std::vector<std::string>>();
+             std::sort(groups.begin(), groups.end());
+@@ -528,13 +531,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
+     catch(std::exception const &e)
+     {
+         logger.log(pam_oauth2_log::log_level_t::ERR, "Caught system exception (this is bad)");
+-        logger.log(pam_oauth2_log::log_level_t::ERR, e.what());
++        logger.log(pam_oauth2_log::log_level_t::ERR, "%s", e.what());
+         return PAM_SYSTEM_ERR;
+     }
+     catch(char const *msg)
+     {
+         logger.log(pam_oauth2_log::log_level_t::ERR, "Caught cannot-happen exception(this is very bad)");
+-        logger.log(pam_oauth2_log::log_level_t::ERR, msg);
++        logger.log(pam_oauth2_log::log_level_t::ERR, "%s", msg);
+         return PAM_SYSTEM_ERR;
+     }
+     return PAM_AUTH_ERR;
+@@ -552,8 +555,7 @@ parse_args(Config &config, [[maybe_unused]] int flags, int argc, const char **ar
+     }
+     catch (json::exception &e)
+     {
+-	logger.log(pam_oauth2_log::log_level_t::ERR, "Failed to load config:");
+-	logger.log(pam_oauth2_log::log_level_t::ERR, e.what());
++	logger.log(pam_oauth2_log::log_level_t::ERR, "Failed to load config: %s", e.what());
+ 	return false;
+     }
+ 
+diff --git a/test/unit.cpp b/test/unit.cpp
+index b4146ee..40e7421 100644
+--- a/test/unit.cpp
++++ b/test/unit.cpp
+@@ -16,6 +16,8 @@
+ #include <algorithm>
+ #include <iterator>
+ #include <cstdlib>
++#include <fcntl.h>
++#include <unistd.h>
+ 
+ 
+ /** \brief Check whether the contents of a file matches exactly that of the string being passed to it
+@@ -265,3 +267,55 @@ is_authorized_local(Userinfo &ui, std::string const &username_local)
+     pam_oauth2_log log(nullptr, pam_oauth2_log::log_level_t::DEBUG);
+     return is_authorized(cf, log, username_local, ui, nullptr);
+ }
++
++TEST(PamOAuth2Unit, LoggerDoesNotCloseStderr)
++{
++    // The destructor used to fclose(stderr), taking fd 2 away from the whole
++    // process; every later write by any code then failed.
++    {
++        pam_oauth2_log logger(nullptr, pam_oauth2_log::log_level_t::ERR);
++        logger.log(pam_oauth2_log::log_level_t::ERR, " ");
++    }
++    EXPECT_GE(fprintf(stderr, " "), 0);
++    EXPECT_NE(fcntl(STDERR_FILENO, F_GETFD), -1);
++}
++
++TEST(PamOAuth2Unit, LoggerRespectsLogLevel)
++{
++    // The level used to be ignored for formatted messages, so a DEBUG message
++    // was emitted even at INFO -- including one that logs a whole userinfo
++    // response.
++    pam_oauth2_log logger(nullptr, pam_oauth2_log::log_level_t::INFO);
++
++    testing::internal::CaptureStderr();
++    logger.log(pam_oauth2_log::log_level_t::DEBUG, "a debug message");
++    logger.log(pam_oauth2_log::log_level_t::INFO, "an info message");
++    logger.log(pam_oauth2_log::log_level_t::ERR, "an error message");
++    std::string const at_info = testing::internal::GetCapturedStderr();
++
++    EXPECT_EQ(at_info.find("a debug message"), std::string::npos) << at_info;
++    EXPECT_NE(at_info.find("an info message"), std::string::npos) << at_info;
++    EXPECT_NE(at_info.find("an error message"), std::string::npos) << at_info;
++
++    logger.set_log_level(pam_oauth2_log::log_level_t::DEBUG);
++    testing::internal::CaptureStderr();
++    logger.log(pam_oauth2_log::log_level_t::DEBUG, "a debug message");
++    EXPECT_NE(testing::internal::GetCapturedStderr().find("a debug message"),
++              std::string::npos);
++
++    logger.set_log_level(pam_oauth2_log::log_level_t::OFF);
++    testing::internal::CaptureStderr();
++    logger.log(pam_oauth2_log::log_level_t::ERR, "silenced");
++    EXPECT_EQ(testing::internal::GetCapturedStderr().find("silenced"),
++              std::string::npos);
++}
++
++TEST(PamOAuth2Unit, LoggerTerminatesMessages)
++{
++    // Without a terminator consecutive messages run together on stderr.
++    pam_oauth2_log logger(nullptr, pam_oauth2_log::log_level_t::INFO);
++    testing::internal::CaptureStderr();
++    logger.log(pam_oauth2_log::log_level_t::INFO, "first");
++    logger.log(pam_oauth2_log::log_level_t::INFO, "second\n");
++    EXPECT_EQ(testing::internal::GetCapturedStderr(), "first\nsecond\n");
++}
+-- 
+2.50.1 (Apple Git-155)
+

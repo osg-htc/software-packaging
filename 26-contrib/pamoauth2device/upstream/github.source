@@ -1,1 +1,1 @@
-type=github  repo=stfc/pam_oauth2_device tag=v1.03 tarball=pam_oauth2_device-v1.03.tar.gz hash=20cd504709d49e509ad1606e4b85cfe858e2e498
+type=github  repo=stfc/pam_oauth2_device tag=v1.04 tarball=pam_oauth2_device-v1.04.tar.gz hash=eca1b2850ceb9f5dea2e8357c6ca3a4523908558

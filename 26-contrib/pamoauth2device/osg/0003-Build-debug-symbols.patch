@@ -1,14 +1,14 @@
-From 58e675b2e795b1179cd96b2e9802d16ff7b607a1 Mon Sep 17 00:00:00 2001
+From 64c9ad47e1a7bfe44c40db0f8482afb43982300b Mon Sep 17 00:00:00 2001
 From: Brian Lin <blin@cs.wisc.edu>
 Date: Mon, 20 Oct 2025 16:52:42 -0500
-Subject: [PATCH 6/6] Build debug symbols
+Subject: [PATCH 3/6] Build debug symbols
 
 ---
  Makefile | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/Makefile b/Makefile
-index 62237e6..66eae32 100644
+index 0ca0f10..d33d8b5 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,5 +1,5 @@
@@ -19,5 +19,5 @@ index 62237e6..66eae32 100644
  LDLIBS=-lpam -lcurl -lldap -llber
  
 -- 
-2.50.1
+2.50.1 (Apple Git-155)
 

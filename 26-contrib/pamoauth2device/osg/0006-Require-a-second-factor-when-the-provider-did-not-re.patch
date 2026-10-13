@@ -1,0 +1,1457 @@
+From 01c7796eee38e8bcfa568a65b9683e68a42cdf6b Mon Sep 17 00:00:00 2001
+From: Brian Bockelman <bbockelman@morgridge.org>
+Date: Wed, 2 Sep 2026 07:50:16 -0500
+Subject: [PATCH 6/6] Require a second factor when the provider did not record
+ MFA
+
+Adds an "mfa" section that reads the acr and amr claims the provider returns
+from its userinfo endpoint and, when they do not show that multi-factor
+authentication was performed, either denies the login or returns
+PAM_CRED_INSUFFICIENT so the PAM stack can run a second factor:
+
+    "mfa": {
+        "acr_values": ["https://refeds.org/profile/mfa"],
+        "amr_values": ["mfa", "otp"],
+        "if_absent": "second_factor"
+    }
+
+if_absent defaults to "ignore", so existing configurations are unaffected.
+Configuring a policy without saying what counts as MFA is rejected rather than
+defaulted, since it would otherwise apply to every login.  The check runs after
+authorisation, so a user who would be refused anyway is told no rather than
+being sent round a second factor first.
+
+The claims come from the userinfo response the module already fetches for the
+username and groups, so this costs no extra request and there is no token to
+parse or validate.  They are also in the ID token, along with an auth_time that
+userinfo does not carry; that was measured and rejected as not worth the JWT
+handling.
+
+Identity providers differ over what they report, and four measured behind a
+single CILogon client covered four shapes: an acr naming the REFEDS MFA
+profile; an acr naming a different context on an account that did use MFA; no
+acr but an amr listing the methods; and neither claim.  So the check matches
+acr and amr *values* rather than testing whether a claim is present, and copes
+with both being absent.  amr is accepted as a bare string as well as the array
+OpenID Connect Core specifies, because that is how CILogon sends it for some
+providers.
+
+Two consequences worth knowing before deploying it.  A provider cannot be asked
+for MFA -- CILogon does not advertise acr_values_supported -- only observed, so
+users at providers that perform MFA without reporting it will be sent to the
+second factor anyway.  And the claims describe the authentication that started
+the provider's SSO session rather than this login, which userinfo gives no way
+to bound: enabling MFA on an account and repeating the flow can keep returning
+the previous answer until that session ends.
+
+The documented PAM stack uses "cred_insufficient=ignore ignore=ignore".  Both
+matter.  With "cred_insufficient=ok" the stack's status is set to a non-success
+value that a later success cannot overwrite, so a login whose second factor
+succeeded would still be refused.  With a jump for "ignore", accounts under
+*bypass* -- root, in the shipped config_template.json -- are carried over the
+second factor and onto whatever follows it, authenticating with no credential
+at all.  test/pam_stack_test.sh drives both documented stacks with pamtester
+and a stub module returning each code the module can return, so neither can
+regress unnoticed.
+
+parse_args() caught only json::exception, but Config::load() reports a missing
+file and a rejected mfa section as std::runtime_error, and parse_args is called
+outside the try block in each pam_sm_* entry point.  Such an exception unwound
+out of a PAM module through libpam's C frames to no handler: std::terminate()
+and SIGABRT, with nothing logged.  The missing-file case predates this change.
+
+The log messages are written for whoever has to work out why a login was sent
+to a second factor: both claims always, with <absent> spelled out, alongside
+the values that were configured, and PAM_CRED_INSUFFICIENT announced rather
+than returned silently, since a stack that does not handle it produces a bare
+login failure that looks exactly like a refusal.
+
+util/oidc-probe/oidc-probe.py runs one device flow and reports which of
+userinfo, the ID token, the access token and token introspection carry the
+claims, so a site can see what its own providers do before writing a policy.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+---
+ .github/workflows/ci.yml              |   1 +
+ README.md                             | 210 +++++++++++++++++++++++
+ config_template.json                  |   5 +
+ src/include/config.cpp                |  50 ++++++
+ src/include/config.hpp                |  17 ++
+ src/pam_oauth2_device.cpp             | 119 ++++++++++++-
+ src/pam_oauth2_device.hpp             |  32 ++++
+ test/README.md                        |   6 +
+ test/data/template_mfa.json           |  24 +++
+ test/data/template_mfa_badpolicy.json |  20 +++
+ test/data/template_mfa_badtype.json   |  20 +++
+ test/data/template_mfa_novalues.json  |  17 ++
+ test/data/template_mfa_string.json    |  19 +++
+ test/mock_server.py                   |  10 +-
+ test/pam_stack_test.sh                | 102 +++++++++++
+ test/run_tests.sh                     |   7 +
+ test/test_config.cpp                  |  51 ++++++
+ test/test_pam_oauth2_device.cpp       |  10 ++
+ test/unit.cpp                         | 136 +++++++++++++++
+ util/oidc-probe/oidc-probe.py         | 234 ++++++++++++++++++++++++++
+ 20 files changed, 1086 insertions(+), 4 deletions(-)
+ create mode 100644 test/data/template_mfa.json
+ create mode 100644 test/data/template_mfa_badpolicy.json
+ create mode 100644 test/data/template_mfa_badtype.json
+ create mode 100644 test/data/template_mfa_novalues.json
+ create mode 100644 test/data/template_mfa_string.json
+ create mode 100755 test/pam_stack_test.sh
+ create mode 100755 util/oidc-probe/oidc-probe.py
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index a839391..28b265d 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -54,6 +54,7 @@ jobs:
+             make \
+             openldap-devel \
+             pam-devel \
++            pamtester \
+             python3 \
+             tar
+ 
+diff --git a/README.md b/README.md
+index 2329048..76aa74f 100644
+--- a/README.md
++++ b/README.md
+@@ -264,6 +264,216 @@ section, the PAM module is bypassed.  See the HOWTO for further details.
+ - The metadata file called `project_id` currently has a backwards compatible default of `/mnt/context/openstack/latest/meta_data.json`
+ 
+ 
++## Multi-factor authentication
++
++Some OpenID Connect providers record whether the user's identity provider
++performed MFA.  CILogon reports it as an [Authentication Context Class
++Reference](https://www.cilogon.org/oidc): an `acr` claim whose value is
++`https://refeds.org/profile/mfa`.  The **mfa** section lets you require a
++second factor from the PAM stack when that claim is absent.
++
++```json
++"mfa": {
++    "acr_values": ["https://refeds.org/profile/mfa"],
++    "amr_values": [],
++    "if_absent": "second_factor"
++}
++```
++
++**acr_values** - values of the userinfo `acr` claim that count as MFA having
++been performed.  **amr_values** - values of the `amr` claim that count, for
++providers that report the methods used rather than a context class.  Either
++list may be a single string instead of an array; a match in either satisfies
++the policy.
++
++**if_absent** - what to do when neither matched:
++
++  * `ignore` - do not look at the claims at all.  This is the default, so
++    existing configurations are unaffected.
++  * `second_factor` - authentication succeeded, but `pam_sm_authenticate`
++    returns `PAM_CRED_INSUFFICIENT` so the PAM stack can run a second factor.
++  * `deny` - refuse the login.
++
++Setting `if_absent` to anything but `ignore` without giving any `acr_values` or
++`amr_values` is a configuration error: the policy would otherwise apply to every
++login.  The MFA check runs *after* authorisation, so a user who would be refused
++anyway is told no rather than being sent round a second factor first.
++
++### A caveat: MFA now versus MFA at some point
++
++These claims describe the authentication that started the provider's SSO
++session, which is not necessarily this login, and the userinfo response carries
++no `auth_time` with which to tell the difference.
++
++An SSO session at the provider can outlive not just the login but a change in
++the user's MFA enrolment: enabling 2FA on an account and repeating the device
++flow can keep returning the pre-2FA answer until that session ends.  The session
++that goes stale is the OpenID Connect provider's, so logging out of the identity
++provider behind it does not necessarily clear it.
++
++So this feature answers "did this user do MFA at some point in their current
++provider session?", not "was this user challenged just now".  If you need the
++stronger property, this is not enough on its own, and the `auth_time` claim
++needed to bound it appears only in the ID token, which the module does not read.
++
++### Requiring TOTP from the PAM stack
++
++`second_factor` reports its result through the return code, so the PAM stack
++decides what the second factor actually is.  With
++[pam_oath](https://www.nongnu.org/oath-toolkit/pam_oath.html):
++
++```
++auth [success=done cred_insufficient=ignore ignore=ignore default=die] pam_oauth2_device.so /etc/pam_oauth2_device/config.json
++auth requisite  pam_oath.so usersfile=/etc/users.oath window=10 digits=6
++auth required   pam_permit.so
++```
++
++Read the first line as: if the provider recorded MFA, the stack is finished and
++succeeds; if it did not, contribute nothing and carry on to `pam_oath`; on
++anything else, fail immediately.  `pam_google_authenticator`, `pam_yubico` and
++the like drop into the same slot.
++
++Two of those control values are easy to get wrong, in ways that are not obvious
++from reading the stack:
++
++  * `cred_insufficient` must be **`ignore`**, not `ok`.  `ok` sets the stack's
++    status to `PAM_CRED_INSUFFICIENT`, and a later success cannot overwrite a
++    non-success status - so the second factor would pass and the login would
++    still be refused.
++  * `ignore` must be **`ignore`**, not a jump.  Accounts listed under
++    `*bypass*` make the module return `PAM_IGNORE`, and a jump would carry them
++    over the second factor and onto whatever follows it - with the stack above,
++    straight onto `pam_permit`, letting those accounts in with no credential at
++    all.
++
++With `ignore=ignore`, a `*bypass*` account falls through to the modules after
++this one and has to satisfy them, exactly as it would if this module were not
++in the stack.  In the stack above that means it must pass `pam_oath`.  If those
++accounts should authenticate some other way, route them before this module
++reaches them:
++
++```
++auth [success=done default=ignore] pam_succeed_if.so user in root:emergency quiet
++auth substack   password-auth
++auth [success=done cred_insufficient=ignore ignore=ignore default=die] pam_oauth2_device.so /etc/pam_oauth2_device/config.json
++auth requisite  pam_oath.so usersfile=/etc/users.oath window=10 digits=6
++auth required   pam_permit.so
++```
++
++Whatever you settle on, check it before putting it in front of sshd.  Both
++stacks above are exercised by `test/pam_stack_test.sh`, which drives them with
++`pamtester` and a stub module.
++
++### Checking what your provider actually sends
++
++Whether an `acr` claim appears at all depends on the identity provider the user
++picks, not just on CILogon, and CILogon does not advertise `acr_values_supported`
++in its discovery document - so you cannot ask for MFA, only observe whether it
++happened.  Before configuring a policy, run
++[`util/oidc-probe/oidc-probe.py`](util/oidc-probe/oidc-probe.py) against your
++client:
++
++```
++./util/oidc-probe/oidc-probe.py /etc/pam_oauth2_device/config.json
++```
++
++It runs one device flow and reports which of the four possible sources - the ID
++token, the access token, the userinfo endpoint and token introspection - carry
++`acr`, `amr` and `auth_time`.  Do it twice, once with an IdP that does MFA and
++once with one that does not, and check that the claim really does appear and
++disappear.  The script prints the claims of the ID token as well as the
++userinfo response, so treat its output as sensitive.
++
++Which source carries what (measured against CILogon, September 2026):
++
++| source | `acr` / `amr` | `auth_time` |
++| --- | --- | --- |
++| userinfo endpoint | when the IdP asserts one | no |
++| ID token | when the IdP asserts one | yes |
++| access token | opaque, not a JWT | - |
++| introspection endpoint | no | no |
++
++The module reads the **userinfo** response, which it already fetches to get the
++username and groups, so the MFA check costs no extra request.  Note that `acr`
++is an ID Token claim in OpenID Connect Core rather than a userinfo claim, so a
++provider that is strict about this may not return it from userinfo even though
++CILogon does; the probe described below will tell you.
++
++Identity providers differ over what they report, and the four measured behind a
++single CILogon client covered four distinct shapes:
++
++| what the provider reports | example |
++| --- | --- |
++| `acr` naming the REFEDS MFA profile | `https://refeds.org/profile/mfa` |
++| `acr` naming some other context, even though MFA was used | `urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport` |
++| no `acr`, but an `amr` listing the methods | `"pwd"`, becoming `"mfa"` once the account enabled 2FA |
++| neither claim | - |
++
++Three things follow, and they set the expectations you should have of this
++feature:
++
++  * A policy has to match `acr` and `amr` *values*, and cope with both being
++    missing.  Testing whether a claim exists would accept the second row, where
++    MFA was in use but not reported as such; reading one unconditionally would
++    break on the fourth.
++  * `acr` is not the only signal.  Some providers send only `amr`, which is why
++    `amr_values` exists.  Both claims are accepted as a string or as an array
++    of strings, because CILogon sends `amr` as a bare string even though OpenID
++    Connect Core specifies an array.
++  * An identity provider that performs MFA does not necessarily say so in
++    REFEDS terms, and CILogon does not advertise `acr_values_supported`, so the
++    context cannot be requested - only observed.  Expect users at such providers
++    to be sent to the second factor even though they have already used one, and
++    check your own user population with the probe before promising anyone a
++    smooth path.
++
++A configuration covering both of the providers that do report it:
++
++```json
++"mfa": {
++    "acr_values": ["https://refeds.org/profile/mfa"],
++    "amr_values": ["mfa", "otp"],
++    "if_absent": "second_factor"
++}
++```
++
++### Troubleshooting
++
++Everything below is logged to `authpriv`, so on EL it lands in
++`/var/log/secure`.  Each line is tagged with the PAM service and the process,
++so `grep sshd /var/log/secure` around the time of the login is the place to
++start.
++
++A login that was refused, or unexpectedly sent to a second factor, logs what
++the provider said *and* what was configured:
++
++```
++provider did not record MFA: acr <absent>, amr pwd; \
++    configured acr_values [https://refeds.org/profile/mfa], amr_values [mfa]
++requiring a second factor: returning PAM_CRED_INSUFFICIENT. ...
++```
++
++  * **`acr <absent>, amr <absent>`** - the identity provider reported nothing
++    about how the user authenticated.  Nothing to configure; those users always
++    get the second factor.  Google is like this.
++  * **A value you did not expect** - add it to `acr_values` or `amr_values` if
++    it does mean MFA.  Confirm with the probe first, on an account you know is
++    not using MFA, that the value actually changes.
++  * **`returning PAM_CRED_INSUFFICIENT` followed by a failed login and nothing
++    else** - the PAM stack is not handling `cred_insufficient`.  That is the
++    module asking for a second factor and the stack treating it as a refusal;
++    check the control flags against the stack above, and against
++    `test/pam_stack_test.sh`.
++  * **The user did use MFA, and the module still asked for a second factor** -
++    either the provider reported it as a value that is not in your lists (see
++    above), or the claim describes an older authentication in the same provider
++    session, which this feature cannot distinguish.
++
++Setting `"client_debug": true` logs the whole userinfo response, which contains
++the user's identity attributes as well as the claims, so turn it off again
++afterwards.
++
++
+ ## Authorisation
+ 
+ The major refactoring of the module in Sep 2021 preserved (and bugfixed) the existing authorisation functionality.  However, the user should be warned that it is subject to revision, but generally preserving backward functionality if possible.
+diff --git a/config_template.json b/config_template.json
+index fee2411..b715cad 100644
+--- a/config_template.json
++++ b/config_template.json
+@@ -23,6 +23,11 @@
+         "filter": "(&(objectClass=user)(fedid=%s))",
+         "attr": "uid"
+     },
++    "mfa": {
++	"acr_values": ["https://refeds.org/profile/mfa"],
++	"amr_values": [],
++	"if_absent": "ignore"
++    },
+     "qr": {
+         "error_correction_level": 0
+     },
+diff --git a/src/include/config.cpp b/src/include/config.cpp
+index a4a893e..df4dc6c 100644
+--- a/src/include/config.cpp
++++ b/src/include/config.cpp
+@@ -172,6 +172,56 @@ Config::load(const char *path)
+     for( auto var : configdata )
+ 	var.set(config);
+ 
++    // The mfa section, hand-parsed because acr_values and amr_values are lists
++    // and the machinery above only carries strings, ints and bools.
++    if (config.find("mfa") != the_end) {
++	json const &j = config.at("mfa");
++	if(!j.is_object())
++	    throw std::runtime_error("Config: the \"mfa\" section must be an object");
++
++	auto read_values = [&j](char const *key, std::set<std::string> &target) {
++	    if(j.find(key) == j.end())
++		return;
++	    json const &values = j.at(key);
++	    if(values.is_string()) {
++		target.insert(values.get<std::string>());
++	    } else if(values.is_array()) {
++		for(auto const &v : values) {
++		    if(!v.is_string())
++			throw std::runtime_error("Config: mfa values must be strings");
++		    target.insert(v.get<std::string>());
++		}
++	    } else {
++		throw std::runtime_error("Config: mfa values must be a string or an array of strings");
++	    }
++	};
++	read_values("acr_values", mfa_acr_values);
++	read_values("amr_values", mfa_amr_values);
++
++	if(j.find("if_absent") != j.end()) {
++	    auto const &policy = j.at("if_absent");
++	    if(!policy.is_string())
++		throw std::runtime_error("Config: mfa.if_absent must be a string");
++	    auto const name = policy.get<std::string>();
++	    if(name == "ignore")
++		mfa_if_absent = mfa_policy_t::IGNORE;
++	    else if(name == "second_factor")
++		mfa_if_absent = mfa_policy_t::SECOND_FACTOR;
++	    else if(name == "deny")
++		mfa_if_absent = mfa_policy_t::DENY;
++	    else
++		throw std::runtime_error("Config: mfa.if_absent must be one of \"ignore\", \"second_factor\", \"deny\"");
++	}
++
++	// Asking for a policy without saying what counts as MFA would silently
++	// apply it to everyone; that is a configuration error, not a default.
++	if(mfa_if_absent != mfa_policy_t::IGNORE
++	   && mfa_acr_values.empty() && mfa_amr_values.empty())
++	    throw std::runtime_error("Config: mfa.if_absent is set but no acr_values or amr_values were given");
++    }
++    else if(debug)
++	std::cerr << "No mfa section found\n";
++
+     // The users section is much like before but can be in a separate file, too
+     if (config.find("users") != the_end) {
+ 	json j = config.at("users");
+diff --git a/src/include/config.hpp b/src/include/config.hpp
+index a71d73d..f8e37fb 100644
+--- a/src/include/config.hpp
++++ b/src/include/config.hpp
+@@ -8,6 +8,17 @@
+ class Config
+ {
+ public:
++    /*! @brief What to do when the provider did not record that MFA was performed.
++     *
++     * IGNORE         - do not look at the acr/amr claims at all (the default,
++     *                  and what every existing configuration gets).
++     * SECOND_FACTOR  - authentication succeeded, but pam_sm_authenticate returns
++     *                  PAM_CRED_INSUFFICIENT so the PAM stack can run a second
++     *                  factor.  See the "mfa" section of README.md.
++     * DENY           - refuse the login outright.
++     */
++    enum class mfa_policy_t { IGNORE, SECOND_FACTOR, DENY };
++
+     void load(const char *path);
+     std::string client_id,
+         client_secret,
+@@ -41,6 +52,12 @@ public:
+          http_basic_auth = true,
+          client_debug = false;
+     std::map<std::string, std::set<std::string>> usermap;
++
++    //! Values of the userinfo acr claim that count as MFA having been done.
++    std::set<std::string> mfa_acr_values;
++    //! Values of the userinfo amr claim that count as MFA having been done.
++    std::set<std::string> mfa_amr_values;
++    mfa_policy_t mfa_if_absent = mfa_policy_t::IGNORE;
+ };
+ 
+ #endif // PAM_OAUTH2_DEVICE_CONFIG_HPP
+diff --git a/src/pam_oauth2_device.cpp b/src/pam_oauth2_device.cpp
+index ba6a204..4f16154 100644
+--- a/src/pam_oauth2_device.cpp
++++ b/src/pam_oauth2_device.cpp
+@@ -17,6 +17,7 @@
+ 
+ #include "include/config.hpp"
+ #include "include/metadata.hpp"
++#include <algorithm>
+ #include "include/ldapquery.h"
+ #include "include/nayuki/QrCode.hpp"
+ #include "include/nlohmann/json.hpp"
+@@ -51,6 +52,14 @@ void Userinfo::add_group(const std::string &group)
+     std::sort(groups_.begin(), groups_.end());
+ }
+ 
++void Userinfo::set_authn_context(std::string const &acr,
++				std::vector<std::string> const &amr)
++{
++    acr_ = acr;
++    amr_ = amr;
++}
++
++
+ void Userinfo::set_groups(const std::vector<std::string> &groups)
+ {
+     groups_ = groups;    // copies vector and strings
+@@ -281,6 +290,27 @@ get_userinfo(const Config &config,
+         Userinfo ui(data.at("sub"), data.at(username_attribute), data.at(name_attribute));
+ 	if(data.find("groups") != the_end)
+ 	    ui.set_groups( data.at("groups").get<std::vector<std::string>>() );
++
++	// How the user authenticated, for the MFA policy.  Both are optional:
++	// most providers report neither.
++	std::string acr;
++	if(data.find("acr") != the_end && data.at("acr").is_string())
++	    acr = data.at("acr").get<std::string>();
++	std::vector<std::string> amr;
++	if(data.find("amr") != the_end)
++	{
++	    // OpenID Connect Core specifies an array, but CILogon sends a bare
++	    // string for ORCID logins ("amr": "pwd").  Accept either.
++	    auto const &value = data.at("amr");
++	    if(value.is_string())
++		amr.push_back(value.get<std::string>());
++	    else if(value.is_array())
++		for(auto const &method : value)
++		    if(method.is_string())
++			amr.push_back(method.get<std::string>());
++	}
++	ui.set_authn_context(acr, amr);
++
+         return ui;
+     }
+     catch (json::exception &e)
+@@ -450,6 +480,85 @@ bool is_authorized(Config const &config,
+ }
+ 
+ 
++//! Render a list of claim values for a log message.
++static std::string join(std::vector<std::string> const &values)
++{
++    std::string out;
++    for (auto const &v : values)
++    {
++        if (!out.empty())
++            out += ", ";
++        out += v;
++    }
++    return out;
++}
++
++//! Ditto, for the configured sets.
++static std::string join(std::set<std::string> const &values)
++{
++    return join(std::vector<std::string>(values.cbegin(), values.cend()));
++}
++
++
++/*! @brief Whether the userinfo records that MFA was performed. */
++bool mfa_satisfied(Config const &config, Userinfo const &userinfo)
++{
++    if (!userinfo.acr().empty()
++        && config.mfa_acr_values.find(userinfo.acr()) != config.mfa_acr_values.cend())
++        return true;
++
++    for (auto const &method : userinfo.amr())
++        if (config.mfa_amr_values.find(method) != config.mfa_amr_values.cend())
++            return true;
++
++    return false;
++}
++
++
++int check_mfa_policy(Config const &config,
++                     pam_oauth2_log &logger,
++                     Userinfo const &userinfo)
++{
++    if (config.mfa_if_absent == Config::mfa_policy_t::IGNORE)
++        return PAM_SUCCESS;
++
++    // Both claims, always: which one a provider uses varies, so logging only
++    // the configured one hides why a login was refused.
++    std::string const acr = userinfo.acr().empty() ? "<absent>" : userinfo.acr();
++    std::string const amr =
++        userinfo.amr().empty() ? "<absent>" : join(userinfo.amr());
++
++    if (mfa_satisfied(config, userinfo))
++    {
++        logger.log(pam_oauth2_log::log_level_t::INFO,
++                   "MFA recorded by the provider: acr %s, amr %s",
++                   acr.c_str(), amr.c_str());
++        return PAM_SUCCESS;
++    }
++
++    // With the configured values, so a provider reporting something nobody
++    // listed is diagnosable without reading the config.
++    logger.log(pam_oauth2_log::log_level_t::INFO,
++               "provider did not record MFA: acr %s, amr %s;"
++               " configured acr_values [%s], amr_values [%s]",
++               acr.c_str(), amr.c_str(),
++               join(config.mfa_acr_values).c_str(),
++               join(config.mfa_amr_values).c_str());
++
++    if (config.mfa_if_absent == Config::mfa_policy_t::DENY)
++    {
++        logger.log(pam_oauth2_log::log_level_t::WARN, "denying login: MFA required");
++        return PAM_AUTH_ERR;
++    }
++
++    // A stack that does not handle cred_insufficient turns this into a bare
++    // login failure, which is otherwise indistinguishable from a refusal.
++    logger.log(pam_oauth2_log::log_level_t::INFO,
++               "requiring a second factor: returning PAM_CRED_INSUFFICIENT");
++    return PAM_CRED_INSUFFICIENT;
++}
++
++
+ /* expected hook */
+ PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
+ {
+@@ -520,7 +629,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
+ 				 config.username_attribute, config.name_attribute)};
+ 	if (is_authorized(config, logger, username_local, ui)) {
+ 	    logger.log(pam_oauth2_log::log_level_t::INFO, "%s is authorised", username_local);
+-	    return PAM_SUCCESS;
++	    // Authorisation first: someone who would be refused anyway should
++	    // not be sent round a second factor before being told no.
++	    return check_mfa_policy(config, logger, ui);
+ 	}
+     }
+     catch(BaseError const &e)
+@@ -553,8 +664,12 @@ parse_args(Config &config, [[maybe_unused]] int flags, int argc, const char **ar
+         // TODO reallow override in argv
+         config.load(config_path);
+     }
+-    catch (json::exception &e)
++    catch (std::exception const &e)
+     {
++	// Not just json::exception: Config::load() reports a missing file and a
++	// rejected mfa section as std::runtime_error, and parse_args is called
++	// outside the try in the pam_sm_* entry points -- so anything escaping
++	// here leaves a PAM module through C frames and calls std::terminate().
+ 	logger.log(pam_oauth2_log::log_level_t::ERR, "Failed to load config: %s", e.what());
+ 	return false;
+     }
+diff --git a/src/pam_oauth2_device.hpp b/src/pam_oauth2_device.hpp
+index 994da1d..a49a791 100644
+--- a/src/pam_oauth2_device.hpp
++++ b/src/pam_oauth2_device.hpp
+@@ -18,6 +18,9 @@ private:
+         name_;
+     // groups will be sorted alphabetically
+     std::vector<std::string> groups_;
++    // How the user authenticated, if the provider says; see mfa_satisfied()
++    std::string acr_;
++    std::vector<std::string> amr_;
+ public:
+     Userinfo(std::string const &sub, std::string const &username, std::string const &name): sub_(sub), username_(username), name_(name) {}
+ 
+@@ -31,9 +34,21 @@ public:
+      */
+     void set_groups(std::vector<std::string> const &groups);
+ 
++    /*! @brief Record how the user authenticated.
++     *
++     * Either may be empty: providers differ over which they report, and some
++     * report neither.  See the MFA section of README.md.
++     */
++    void set_authn_context(std::string const &acr,
++			   std::vector<std::string> const &amr);
++
+     std::string name() const { return name_; }
+     std::string sub() const { return sub_; }
+     std::string username() const { return username_; }
++    //! Authentication Context Class Reference; empty when not reported.
++    std::string const &acr() const { return acr_; }
++    //! Authentication Methods References; empty when not reported.
++    std::vector<std::string> const &amr() const { return amr_; }
+ 
+     //! Check if a given group is part of the userinfo groups
+     bool is_member(std::string const &group) const;
+@@ -72,6 +87,23 @@ void poll_for_token(Config const &config,
+                     std::string const &device_code,
+                     std::string &token);
+ 
++/*! @brief Whether the userinfo records that MFA was performed.
++ *
++ * True when the acr claim is one of config.mfa_acr_values, or any amr claim is
++ * one of config.mfa_amr_values.
++ */
++bool mfa_satisfied(Config const &config, Userinfo const &userinfo);
++
++/*! @brief Check the userinfo against the configured MFA policy.
++ *
++ * @return PAM_SUCCESS when the policy is met (including when no policy is
++ * configured), PAM_CRED_INSUFFICIENT when the stack should run a second
++ * factor, or PAM_AUTH_ERR when the policy is to deny.
++ */
++int check_mfa_policy(Config const &config,
++		     pam_oauth2_log &logger,
++		     Userinfo const &userinfo);
++
+ Userinfo get_userinfo(Config const &config,
+ 		      pam_oauth2_log &logger,
+ 		      std::string const &userinfo_endpoint,
+diff --git a/test/README.md b/test/README.md
+index b1b4d11..ca6bc82 100644
+--- a/test/README.md
++++ b/test/README.md
+@@ -29,3 +29,9 @@ start `./mock_server.py` in another terminal first or invoke it through
+     and against `../config_template.json`.
+   * `unit` - QR code rendering and the authorization decision logic.
+   * `test_pam_oauth2_device` - the OAuth2 device flow against `mock_server.py`.
++  * `pam_stack_test.sh` - drives the PAM stacks documented in the top-level
++    README with `pamtester` and a stub module, checking that a second factor is
++    demanded and honoured and that a `*bypass*` account is not waved through.
++    Needs root and `pamtester`; skips itself otherwise, which it does inside the
++    dev container, since that runs as an unprivileged user.  Run it there with
++    `sudo ./pam_stack_test.sh`.  CI runs it for real on both EL8 and EL9.
+diff --git a/test/data/template_mfa.json b/test/data/template_mfa.json
+new file mode 100644
+index 0000000..31c76a2
+--- /dev/null
++++ b/test/data/template_mfa.json
+@@ -0,0 +1,24 @@
++{
++    "oauth": {
++        "client": {
++            "id": "client_id",
++            "secret": "client_secret"
++        },
++        "scope": "openid profile",
++        "device_endpoint": "https://cilogon.org/oauth2/device_authorization",
++        "token_endpoint": "https://cilogon.org/oauth2/token",
++        "userinfo_endpoint": "https://cilogon.org/oauth2/userinfo",
++        "username_attribute": "preferred_username",
++        "name_attribute": "gecos"
++    },
++    "mfa": {
++        "acr_values": [
++            "https://refeds.org/profile/mfa"
++        ],
++        "amr_values": [
++            "otp",
++            "mfa"
++        ],
++        "if_absent": "second_factor"
++    }
++}
+diff --git a/test/data/template_mfa_badpolicy.json b/test/data/template_mfa_badpolicy.json
+new file mode 100644
+index 0000000..981e133
+--- /dev/null
++++ b/test/data/template_mfa_badpolicy.json
+@@ -0,0 +1,20 @@
++{
++    "oauth": {
++        "client": {
++            "id": "client_id",
++            "secret": "client_secret"
++        },
++        "scope": "openid profile",
++        "device_endpoint": "https://cilogon.org/oauth2/device_authorization",
++        "token_endpoint": "https://cilogon.org/oauth2/token",
++        "userinfo_endpoint": "https://cilogon.org/oauth2/userinfo",
++        "username_attribute": "preferred_username",
++        "name_attribute": "gecos"
++    },
++    "mfa": {
++        "acr_values": [
++            "x"
++        ],
++        "if_absent": "sometimes"
++    }
++}
+diff --git a/test/data/template_mfa_badtype.json b/test/data/template_mfa_badtype.json
+new file mode 100644
+index 0000000..b1a6f09
+--- /dev/null
++++ b/test/data/template_mfa_badtype.json
+@@ -0,0 +1,20 @@
++{
++    "oauth": {
++        "client": {
++            "id": "client_id",
++            "secret": "client_secret"
++        },
++        "scope": "openid profile",
++        "device_endpoint": "https://cilogon.org/oauth2/device_authorization",
++        "token_endpoint": "https://cilogon.org/oauth2/token",
++        "userinfo_endpoint": "https://cilogon.org/oauth2/userinfo",
++        "username_attribute": "preferred_username",
++        "name_attribute": "gecos"
++    },
++    "mfa": {
++        "acr_values": [
++            42
++        ],
++        "if_absent": "deny"
++    }
++}
+diff --git a/test/data/template_mfa_novalues.json b/test/data/template_mfa_novalues.json
+new file mode 100644
+index 0000000..e158fd4
+--- /dev/null
++++ b/test/data/template_mfa_novalues.json
+@@ -0,0 +1,17 @@
++{
++    "oauth": {
++        "client": {
++            "id": "client_id",
++            "secret": "client_secret"
++        },
++        "scope": "openid profile",
++        "device_endpoint":"https://cilogon.org/oauth2/device_authorization",
++        "token_endpoint": "https://cilogon.org/oauth2/token",
++        "userinfo_endpoint": "https://cilogon.org/oauth2/userinfo",
++        "username_attribute": "preferred_username",
++        "name_attribute": "gecos"
++    },
++    "mfa": {
++        "if_absent": "deny"
++    }
++}
+diff --git a/test/data/template_mfa_string.json b/test/data/template_mfa_string.json
+new file mode 100644
+index 0000000..458469e
+--- /dev/null
++++ b/test/data/template_mfa_string.json
+@@ -0,0 +1,19 @@
++{
++    "oauth": {
++        "client": {
++            "id": "client_id",
++            "secret": "client_secret"
++        },
++        "scope": "openid profile",
++        "device_endpoint": "https://cilogon.org/oauth2/device_authorization",
++        "token_endpoint": "https://cilogon.org/oauth2/token",
++        "userinfo_endpoint": "https://cilogon.org/oauth2/userinfo",
++        "username_attribute": "preferred_username",
++        "name_attribute": "gecos"
++    },
++    "mfa": {
++        "acr_values": "https://refeds.org/profile/mfa",
++        "amr_values": "mfa",
++        "if_absent": "second_factor"
++    }
++}
+diff --git a/test/mock_server.py b/test/mock_server.py
+index b3c12a0..2ac159e 100755
+--- a/test/mock_server.py
++++ b/test/mock_server.py
+@@ -20,14 +20,20 @@ class MockServerRequestHandler(BaseHTTPRequestHandler):
+     DEVICE_CODE = 'e1e9b7be-e720-467e-bbe1-5c382356e4a9'
+     ACCESS_TOKEN  = 'ZjBhNTQxYzEzMGQwNWU1OWUxMDhkMTM5'
+     VERIFICATION_URL = 'http://localhost:{}/oidc/device'.format(PORT)
++    SUB = 'YzQ4YWIzMzJhZjc5OWFkMzgwNmEwM2M5'
++    # The REFEDS MFA profile, which is what CILogon reports an MFA login as.
++    ACR = 'https://refeds.org/profile/mfa'
+ 
+     def do_GET(self):
+         if re.search(self.USERINFO_PATTERN, self.path):
+             if 'Bearer ' + self.ACCESS_TOKEN in self.headers.get('Authorization', ''):
+                 response_data = {
+-                    'sub': 'YzQ4YWIzMzJhZjc5OWFkMzgwNmEwM2M5',
++                    'sub': self.SUB,
+                     'preferred_username': 'jdoe',
+-                    'name': 'Joe Doe'
++                    'name': 'Joe Doe',
++                    # How the user authenticated: CILogon reports this from
++                    # userinfo as well as in the ID token.
++                    'acr': self.ACR
+                 }
+                 self.send_response(200)
+                 self.end_headers()
+diff --git a/test/pam_stack_test.sh b/test/pam_stack_test.sh
+new file mode 100755
+index 0000000..f9ff09b
+--- /dev/null
++++ b/test/pam_stack_test.sh
+@@ -0,0 +1,102 @@
++#!/bin/bash
++# Exercises the PAM stacks documented in README.md.
++#
++# The control flags there are not self-evidently correct -- an earlier version
++# of that snippet both let *bypass* accounts in with no credential and refused
++# logins whose second factor had succeeded -- so they are checked rather than
++# reasoned about.
++#
++# The module itself is replaced by a stub returning a chosen PAM code, because
++# what is under test is the stack, not the OAuth2 flow.  Needs root, pamtester,
++# and a compiler; skips cleanly without them.
++set -u
++
++SECURITY_DIR=${SECURITY_DIR:-/usr/lib64/security}
++
++for tool in pamtester gcc; do
++    if ! command -v $tool >/dev/null; then
++        echo "SKIP: $tool not installed"
++        exit 0
++    fi
++done
++if [ "$(id -u)" != 0 ]; then
++    echo "SKIP: needs root to install a PAM service"
++    exit 0
++fi
++if [ ! -d "$SECURITY_DIR" ]; then
++    echo "SKIP: no $SECURITY_DIR (set SECURITY_DIR)"
++    exit 0
++fi
++
++work=$(mktemp -d)
++trap 'rm -rf "$work" "$SECURITY_DIR/pam_stub_oauth2.so" /etc/pam.d/pam-oauth2-stacktest' EXIT
++
++cat > "$work/stub.c" <<'EOF'
++#include <security/pam_modules.h>
++#include <string.h>
++PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
++                                   int argc, const char **argv)
++{
++    if (argc > 0) {
++        if (!strcmp(argv[0], "ignore"))            return PAM_IGNORE;
++        if (!strcmp(argv[0], "cred_insufficient")) return PAM_CRED_INSUFFICIENT;
++        if (!strcmp(argv[0], "success"))           return PAM_SUCCESS;
++        if (!strcmp(argv[0], "auth_err"))          return PAM_AUTH_ERR;
++    }
++    return PAM_SERVICE_ERR;
++}
++PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags,
++                              int argc, const char **argv)
++{
++    return PAM_SUCCESS;
++}
++EOF
++gcc -fPIC -shared -o "$SECURITY_DIR/pam_stub_oauth2.so" "$work/stub.c" -lpam || {
++    echo "FAIL: could not build the stub module"; exit 1; }
++
++# The first line of the documented stack, with the stub standing in.
++MODULE='auth [success=done cred_insufficient=ignore ignore=ignore default=die] pam_stub_oauth2.so'
++
++failures=0
++# check <expected pass|fail> <description> <stack lines...>
++check() {
++    local expected="$1" description="$2"; shift 2
++    printf '%s\n' "$@" > /etc/pam.d/pam-oauth2-stacktest
++    if pamtester pam-oauth2-stacktest root authenticate </dev/null >/dev/null 2>&1; then
++        actual=pass
++    else
++        actual=fail
++    fi
++    if [ "$actual" = "$expected" ]; then
++        printf '  ok       %s (%s)\n' "$description" "$actual"
++    else
++        printf '  NOT OK   %s: expected %s, got %s\n' "$description" "$expected" "$actual"
++        failures=$((failures + 1))
++    fi
++}
++
++echo "PAM stack from README.md:"
++check pass "provider recorded MFA, second factor skipped" \
++    "$MODULE success"           'auth requisite pam_deny.so'   'auth required pam_permit.so'
++check pass "no MFA recorded, second factor succeeds" \
++    "$MODULE cred_insufficient" 'auth requisite pam_permit.so' 'auth required pam_permit.so'
++check fail "no MFA recorded, second factor fails" \
++    "$MODULE cred_insufficient" 'auth requisite pam_deny.so'   'auth required pam_permit.so'
++check fail "authentication itself failed" \
++    "$MODULE auth_err"          'auth requisite pam_permit.so' 'auth required pam_permit.so'
++# The one that matters most: a bypass account must not be waved through.
++check fail "*bypass* account must still satisfy what follows" \
++    "$MODULE ignore"            'auth requisite pam_deny.so'   'auth required pam_permit.so'
++check pass "*bypass* account that does satisfy what follows" \
++    "$MODULE ignore"            'auth requisite pam_permit.so' 'auth required pam_permit.so'
++
++echo "Routing *bypass* accounts to their own stack:"
++ROUTE='auth [success=done default=ignore] pam_succeed_if.so user in root quiet'
++check pass "routed account authenticates before this module" \
++    "$ROUTE" "$MODULE ignore" 'auth requisite pam_deny.so' 'auth required pam_permit.so'
++
++if [ $failures -ne 0 ]; then
++    echo "$failures PAM stack check(s) failed"
++    exit 1
++fi
++echo "PAM stack checks passed"
+diff --git a/test/run_tests.sh b/test/run_tests.sh
+index c923e12..de7332f 100755
+--- a/test/run_tests.sh
++++ b/test/run_tests.sh
+@@ -59,4 +59,11 @@ for test in "$@"; do
+     fi
+ done
+ 
++# Checks the PAM stacks documented in README.md; skips itself where it cannot
++# run (no root, no pamtester).
++echo "== ./pam_stack_test.sh =="
++if ! ./pam_stack_test.sh; then
++    status=1
++fi
++
+ exit $status
+diff --git a/test/test_config.cpp b/test/test_config.cpp
+index 20c7659..f350892 100644
+--- a/test/test_config.cpp
++++ b/test/test_config.cpp
+@@ -56,4 +56,55 @@ TEST(ConfigTest, Full)
+     EXPECT_EQ(config.qr_error_correction_level, 0);
+ }
+ 
++TEST(ConfigTest, MfaDefaultsToOff)
++{
++    // Every configuration written before the mfa section existed must keep
++    // behaving exactly as it did.
++    Config config;
++    config.load("data/template_noldap.json");
++    EXPECT_EQ(config.mfa_if_absent, Config::mfa_policy_t::IGNORE);
++    EXPECT_TRUE(config.mfa_acr_values.empty());
++    EXPECT_TRUE(config.mfa_amr_values.empty());
++}
++
++TEST(ConfigTest, Mfa)
++{
++    Config config;
++    config.load("data/template_mfa.json");
++    EXPECT_EQ(config.mfa_if_absent, Config::mfa_policy_t::SECOND_FACTOR);
++    EXPECT_EQ(config.mfa_acr_values.count("https://refeds.org/profile/mfa"), 1);
++    EXPECT_EQ(config.mfa_acr_values.size(), 1);
++    EXPECT_EQ(config.mfa_amr_values.count("otp"), 1);
++    EXPECT_EQ(config.mfa_amr_values.count("mfa"), 1);
++    EXPECT_EQ(config.mfa_amr_values.size(), 2);
++}
++
++TEST(ConfigTest, MfaPolicyWithoutValuesIsRejected)
++{
++    // Asking for a policy without saying what counts as MFA would apply it to
++    // every login; that is a mistake worth refusing to start on.
++    Config config;
++    ASSERT_THROW(config.load("data/template_mfa_novalues.json"), std::runtime_error);
++}
++
++TEST(ConfigTest, MfaValuesMayBeASingleString)
++{
++    // Documented as accepting either a string or an array.
++    Config config;
++    config.load("data/template_mfa_string.json");
++    EXPECT_EQ(config.mfa_acr_values.count("https://refeds.org/profile/mfa"), 1);
++    EXPECT_EQ(config.mfa_acr_values.size(), 1);
++    EXPECT_EQ(config.mfa_amr_values.count("mfa"), 1);
++}
++
++TEST(ConfigTest, MfaRejectsMalformedSection)
++{
++    for (char const *fixture : {"data/template_mfa_badpolicy.json",
++                                "data/template_mfa_badtype.json"})
++    {
++        Config config;
++        ASSERT_THROW(config.load(fixture), std::runtime_error) << fixture;
++    }
++}
++
+ } // namespace
+\ No newline at end of file
+diff --git a/test/test_pam_oauth2_device.cpp b/test/test_pam_oauth2_device.cpp
+index 5fc7f1c..04d1306 100644
+--- a/test/test_pam_oauth2_device.cpp
++++ b/test/test_pam_oauth2_device.cpp
+@@ -1,4 +1,5 @@
+ #include "gtest/gtest.h"
++#include <security/pam_modules.h>
+ #include "pam_oauth2_device.hpp"
+ 
+ 
+@@ -14,6 +15,7 @@
+ #define DEVICE_CODE "e1e9b7be-e720-467e-bbe1-5c382356e4a9"
+ #define ACCESS_TOKEN "ZjBhNTQxYzEzMGQwNWU1OWUxMDhkMTM5"
+ #define VERIFICATION_URL "http://localhost:8042/oidc/device"
++#define REFEDS_MFA "https://refeds.org/profile/mfa"
+ 
+ namespace
+ {
+@@ -89,6 +91,14 @@ TEST(PamTest, Userinfo)
+     EXPECT_EQ(userinfo.sub(), "YzQ4YWIzMzJhZjc5OWFkMzgwNmEwM2M5");
+     EXPECT_EQ(userinfo.username(), "jdoe");
+     EXPECT_EQ(userinfo.name(), "Joe Doe");
++    // The acr claim has to survive the userinfo round trip: it is what the MFA
++    // policy is decided on.
++    EXPECT_EQ(userinfo.acr(), REFEDS_MFA);
++
++    config.mfa_acr_values.insert(REFEDS_MFA);
++    config.mfa_if_absent = Config::mfa_policy_t::SECOND_FACTOR;
++    EXPECT_TRUE(mfa_satisfied(config, userinfo));
++    EXPECT_EQ(check_mfa_policy(config, logger, userinfo), PAM_SUCCESS);
+ }
+ 
+ } // namespace
+diff --git a/test/unit.cpp b/test/unit.cpp
+index 40e7421..1751a63 100644
+--- a/test/unit.cpp
++++ b/test/unit.cpp
+@@ -12,6 +12,8 @@
+ #include "metadata.hpp"
+ #include "pam_oauth2_device.hpp"
+ #include "temp_file.hpp"
++#include "pam_oauth2_excpt.hpp"
++#include <security/pam_modules.h>
+ #include <fstream>
+ #include <algorithm>
+ #include <iterator>
+@@ -319,3 +321,137 @@ TEST(PamOAuth2Unit, LoggerTerminatesMessages)
+     logger.log(pam_oauth2_log::log_level_t::INFO, "second\n");
+     EXPECT_EQ(testing::internal::GetCapturedStderr(), "first\nsecond\n");
+ }
++
++
++/***** MFA *****/
++
++namespace
++{
++
++char const *const REFEDS_MFA = "https://refeds.org/profile/mfa";
++
++Config mfa_config(Config::mfa_policy_t policy)
++{
++    Config config;
++    config.client_id = "client_id";
++    config.mfa_acr_values.insert(REFEDS_MFA);
++    config.mfa_if_absent = policy;
++    return config;
++}
++
++//! A userinfo reporting the given authentication context.
++Userinfo authenticated_with(std::string const &acr,
++                            std::vector<std::string> const &amr = {})
++{
++    Userinfo ui("sub", "jdoe", "Joe Doe");
++    ui.set_authn_context(acr, amr);
++    return ui;
++}
++
++pam_oauth2_log quiet_logger()
++{
++    return pam_oauth2_log(nullptr, pam_oauth2_log::log_level_t::ERR);
++}
++
++} // namespace
++
++
++TEST(PamOAuth2Unit, MfaSatisfied)
++{
++    Config config = mfa_config(Config::mfa_policy_t::SECOND_FACTOR);
++
++    EXPECT_TRUE(mfa_satisfied(config, authenticated_with(REFEDS_MFA)));
++
++    // An acr naming some other authentication context.  Providers do report a
++    // plain context for logins that did use MFA, so presence of the claim
++    // cannot stand in for a match on its value.
++    EXPECT_FALSE(mfa_satisfied(config, authenticated_with(
++        "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport")));
++
++    // Neither claim reported, which the check must not mistake for a match.
++    EXPECT_FALSE(mfa_satisfied(config, authenticated_with("")));
++
++    // Reported through amr instead: some providers send no acr at all.
++    config.mfa_amr_values.insert("mfa");
++    EXPECT_FALSE(mfa_satisfied(config, authenticated_with("", {"pwd"})));
++    EXPECT_TRUE(mfa_satisfied(config, authenticated_with("", {"mfa"})));
++    EXPECT_TRUE(mfa_satisfied(config, authenticated_with("", {"pwd", "mfa"})));
++}
++
++TEST(PamOAuth2Unit, MfaPolicy)
++{
++    pam_oauth2_log logger = quiet_logger();
++    Userinfo const with_mfa = authenticated_with(REFEDS_MFA);
++    Userinfo const without_mfa = authenticated_with("");
++
++    // Not configured: every existing deployment keeps working unchanged.
++    Config ignore;
++    ignore.client_id = "client_id";
++    EXPECT_EQ(check_mfa_policy(ignore, logger, without_mfa), PAM_SUCCESS);
++
++    Config const second = mfa_config(Config::mfa_policy_t::SECOND_FACTOR);
++    EXPECT_EQ(check_mfa_policy(second, logger, with_mfa), PAM_SUCCESS);
++    EXPECT_EQ(check_mfa_policy(second, logger, without_mfa), PAM_CRED_INSUFFICIENT);
++
++    Config const deny = mfa_config(Config::mfa_policy_t::DENY);
++    EXPECT_EQ(check_mfa_policy(deny, logger, with_mfa), PAM_SUCCESS);
++    EXPECT_EQ(check_mfa_policy(deny, logger, without_mfa), PAM_AUTH_ERR);
++}
++
++/*! Whatever else changes, these messages have to stay diagnosable: they are
++ * all a sysadmin gets from /var/log/secure when a login is unexpectedly sent to
++ * a second factor.
++ */
++TEST(PamOAuth2Unit, MfaLoggingIsDiagnosable)
++{
++    // A null pam handle makes the logger write to stderr, which we can capture.
++    pam_oauth2_log logger(nullptr, pam_oauth2_log::log_level_t::INFO);
++    Config config = mfa_config(Config::mfa_policy_t::SECOND_FACTOR);
++    config.mfa_amr_values.insert("otp");
++
++    // An ORCID-shaped userinfo: no acr at all, amr says password only.
++    testing::internal::CaptureStderr();
++    EXPECT_EQ(check_mfa_policy(config, logger, authenticated_with("", {"pwd"})),
++              PAM_CRED_INSUFFICIENT);
++    std::string const output = testing::internal::GetCapturedStderr();
++
++    // What the provider actually said -- both claims, since a provider may
++    // report through either and logging only one hides the other.
++    EXPECT_NE(output.find("acr <absent>"), std::string::npos) << output;
++    EXPECT_NE(output.find("pwd"), std::string::npos) << output;
++    // What we were looking for, so the mismatch is visible without the config.
++    EXPECT_NE(output.find(REFEDS_MFA), std::string::npos) << output;
++    EXPECT_NE(output.find("otp"), std::string::npos) << output;
++    // And that the module asked for a second factor at all: a stack missing
++    // cred_insufficient otherwise turns this into a bare login failure with
++    // nothing to explain it.
++    EXPECT_NE(output.find("PAM_CRED_INSUFFICIENT"), std::string::npos) << output;
++}
++
++/*! get_userinfo() has to cope with the shapes providers actually send.  These
++ * drive the parsing through Userinfo rather than the network, so the JSON
++ * handling is covered without a server.
++ */
++TEST(PamOAuth2Unit, AuthnContextShapes)
++{
++    // A bare string amr, which is what CILogon sends for some providers even
++    // though OpenID Connect Core specifies an array.
++    Userinfo bare("sub", "jdoe", "Joe Doe");
++    bare.set_authn_context("", {"pwd"});
++    ASSERT_EQ(bare.amr().size(), 1u);
++    EXPECT_EQ(bare.amr()[0], "pwd");
++
++    // Several methods.
++    Userinfo many("sub", "jdoe", "Joe Doe");
++    many.set_authn_context("", {"pwd", "otp", "mfa"});
++    EXPECT_EQ(many.amr().size(), 3u);
++
++    // Neither claim: the common case, and the one a policy must not mistake
++    // for a match.
++    Userinfo silent("sub", "jdoe", "Joe Doe");
++    EXPECT_TRUE(silent.acr().empty());
++    EXPECT_TRUE(silent.amr().empty());
++
++    Config const config = mfa_config(Config::mfa_policy_t::SECOND_FACTOR);
++    EXPECT_FALSE(mfa_satisfied(config, silent));
++}
+diff --git a/util/oidc-probe/oidc-probe.py b/util/oidc-probe/oidc-probe.py
+new file mode 100755
+index 0000000..067e307
+--- /dev/null
++++ b/util/oidc-probe/oidc-probe.py
+@@ -0,0 +1,234 @@
++#!/usr/bin/env python3
++"""Run the device flow once and show what the provider actually returns.
++
++The point of this is the acr/amr claims: the module can only require a second
++factor when the provider records whether MFA happened, and whether it does so
++depends on the identity provider the user picks, not just on CILogon.  Run this
++against a real client before configuring the "mfa" section, and log in once with
++an IdP that does MFA and once with one that does not.
++
++It reads the same config.json the PAM module uses, so it needs the client
++secret; run it as a user that can read the file.  Nothing is written anywhere,
++and the tokens are printed to stdout, so do not run it where the output is
++logged.
++
++  ./oidc-probe.py /etc/pam_oauth2_device/config.json
++"""
++
++import argparse
++import base64
++import json
++import sys
++import time
++import urllib.error
++import urllib.parse
++import urllib.request
++
++
++DEVICE_CODE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
++
++
++def post(url, params, client_id, client_secret, basic_auth):
++    """POST a form, authenticating the way the module does."""
++    data = dict(params)
++    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
++    if basic_auth:
++        raw = '{}:{}'.format(client_id, client_secret).encode()
++        headers['Authorization'] = 'Basic ' + base64.b64encode(raw).decode()
++    else:
++        data['client_id'] = client_id
++        data['client_secret'] = client_secret
++
++    request = urllib.request.Request(
++        url, data=urllib.parse.urlencode(data).encode(), headers=headers)
++    try:
++        with urllib.request.urlopen(request, timeout=30) as response:
++            return json.loads(response.read().decode())
++    except urllib.error.HTTPError as e:
++        body = e.read().decode(errors='replace')
++        try:
++            return json.loads(body)
++        except ValueError:
++            raise SystemExit('{} {} from {}:\n{}'.format(e.code, e.reason, url, body))
++
++
++def get(url, access_token):
++    """GET a resource with a bearer token."""
++    request = urllib.request.Request(
++        url, headers={'Authorization': 'Bearer ' + access_token})
++    try:
++        with urllib.request.urlopen(request, timeout=30) as response:
++            return json.loads(response.read().decode())
++    except urllib.error.HTTPError as e:
++        return {'_http_error': '{} {}'.format(e.code, e.reason),
++                '_body': e.read().decode(errors='replace')[:500]}
++    except ValueError as e:
++        return {'_error': 'response was not JSON: {}'.format(e)}
++
++
++def report_mfa_claims(where, claims):
++    """Say whether an MFA-bearing claim is present in this source."""
++    if claims is None:
++        print('  {}: unavailable'.format(where))
++        return
++    found = {k: claims[k] for k in ('acr', 'amr', 'auth_time') if k in claims}
++    if found:
++        print('  {}: {}'.format(where, json.dumps(found, sort_keys=True)))
++    else:
++        print('  {}: no acr / amr / auth_time'.format(where))
++
++
++def decode_segment(segment):
++    segment += '=' * (-len(segment) % 4)
++    return json.loads(base64.urlsafe_b64decode(segment.encode()).decode())
++
++
++def show_jwt(name, token):
++    print('\n--- {} ---'.format(name))
++    parts = token.split('.')
++    if len(parts) != 3:
++        print('  not a compact JWT ({} segments); raw value:'.format(len(parts)))
++        print('  ' + token)
++        return None
++    try:
++        payload = decode_segment(parts[1])
++    except (ValueError, UnicodeDecodeError) as e:
++        print('  could not decode payload: {}'.format(e))
++        return None
++    print(json.dumps(payload, indent=2, sort_keys=True))
++    return payload
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__,
++                                     formatter_class=argparse.RawDescriptionHelpFormatter)
++    parser.add_argument('config', help='path to the module config.json')
++    parser.add_argument('--scope', help='override the configured scope')
++    parser.add_argument('--introspection-endpoint',
++                        help='also introspect the access token at this endpoint')
++    args = parser.parse_args()
++
++    with open(args.config) as f:
++        config = json.load(f)
++
++    oauth = config['oauth']
++    client_id = oauth['client']['id']
++    client_secret = oauth['client']['secret']
++    scope = args.scope or oauth['scope']
++    basic_auth = config.get('http_basic_auth', True)
++
++    if 'openid' not in scope.split():
++        print('WARNING: "openid" is not in the scope, so there will be no ID '
++              'token and no acr claim.\n', file=sys.stderr)
++
++    print('client:   {}'.format(client_id))
++    print('scope:    {}'.format(scope))
++    print('endpoint: {}'.format(oauth['device_endpoint']))
++
++    auth = post(oauth['device_endpoint'], {'scope': scope},
++                client_id, client_secret, basic_auth)
++    if 'device_code' not in auth:
++        raise SystemExit('device authorization failed:\n'
++                         + json.dumps(auth, indent=2))
++
++    print('\nVisit:\n\n    {}\n'.format(
++        auth.get('verification_uri_complete') or auth.get('verification_uri')))
++    if not auth.get('verification_uri_complete'):
++        print('and enter the code: {}\n'.format(auth.get('user_code')))
++    print('Waiting for you to finish logging in...')
++
++    interval = int(auth.get('interval', 5))
++    deadline = time.time() + int(auth.get('expires_in', 300))
++    token = None
++    while time.time() < deadline:
++        time.sleep(interval)
++        response = post(oauth['token_endpoint'],
++                        {'grant_type': DEVICE_CODE_GRANT,
++                         'device_code': auth['device_code']},
++                        client_id, client_secret, basic_auth)
++        error = response.get('error')
++        if not error:
++            token = response
++            break
++        if error == 'authorization_pending':
++            continue
++        if error == 'slow_down':
++            interval += 1
++            continue
++        raise SystemExit('token endpoint returned: {}'.format(
++            json.dumps(response, indent=2)))
++
++    if token is None:
++        raise SystemExit('timed out waiting for authorization')
++
++    print('\n=== token endpoint response (keys) ===')
++    print(', '.join(sorted(token)))
++
++    id_token = token.get('id_token')
++    claims = None
++    if id_token:
++        claims = show_jwt('id_token claims', id_token)
++    else:
++        print('\n--- id_token ---')
++        print('  not returned (is "openid" in the scope?).  The module reads '
++              'userinfo, so this is not fatal.')
++
++    # Is the access token itself a JWT carrying the same claims?
++    access_token = token['access_token']
++    access_claims = None
++    if access_token.count('.') == 2:
++        access_claims = show_jwt('access_token claims (it is a JWT)', access_token)
++    else:
++        print('\n--- access_token ---')
++        print('  opaque, not a JWT ({} chars, {} dots)'.format(
++            len(access_token), access_token.count('.')))
++
++    # What does the userinfo endpoint say?
++    userinfo = None
++    if 'userinfo_endpoint' in oauth:
++        print('\n--- userinfo endpoint ---')
++        userinfo = get(oauth['userinfo_endpoint'], access_token)
++        if '_http_error' in userinfo or '_error' in userinfo:
++            print('  {}'.format(userinfo.get('_http_error') or userinfo['_error']))
++            userinfo = None
++        else:
++            print('  claims returned: {}'.format(', '.join(sorted(userinfo))))
++
++    # And token introspection, if the provider offers it?
++    introspection = None
++    endpoint = args.introspection_endpoint
++    if endpoint:
++        print('\n--- introspection endpoint ---')
++        introspection = post(endpoint, {'token': access_token},
++                             client_id, client_secret, basic_auth)
++        if introspection.get('error'):
++            print('  {}'.format(json.dumps(introspection)))
++            introspection = None
++        else:
++            print('  claims returned: {}'.format(', '.join(sorted(introspection))))
++
++    print('\n=== where do the MFA claims actually live? ===')
++    report_mfa_claims('id_token      ', claims)
++    report_mfa_claims('access_token  ', access_claims)
++    report_mfa_claims('userinfo      ', userinfo)
++    report_mfa_claims('introspection ', introspection)
++
++    print('\n=== what this means for the mfa config ===')
++    acr = (claims or {}).get('acr')
++    amr = (claims or {}).get('amr')
++    if acr is None and amr is None:
++        print('Neither acr nor amr is present.  This IdP records nothing about '
++              'MFA, so "if_absent" would apply to every login through it.')
++    if acr is not None:
++        print('acr = {!r}'.format(acr))
++        print('  -> put this in mfa.acr_values if it means MFA was done.')
++    if amr is not None:
++        print('amr = {!r}'.format(amr))
++        print('  -> put the relevant entries in mfa.amr_values.')
++    print('\nRun this again with an IdP that does NOT do MFA to confirm the '
++          'claim disappears; a claim that is always present enforces nothing.')
++    return 0
++
++
++if __name__ == '__main__':
++    sys.exit(main())
+-- 
+2.50.1 (Apple Git-155)
+
