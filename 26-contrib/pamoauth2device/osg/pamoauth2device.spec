@@ -1,5 +1,5 @@
 # pam_oauth2_device version
-%define _version 1.03
+%define _version 1.04
 %define _lib /lib64
 
 
@@ -14,6 +14,9 @@ Patch0: 0000-Add-support-for-configurable-name-claim.patch
 Patch1: 0001-INF-2984-drop-unnecessary-token-logging.patch
 Patch2: 0002-Be-more-concrete-in-when-the-user-should-hit-enter.patch
 Patch3: 0003-Build-debug-symbols.patch
+Patch4: 0004-Add-a-development-container-and-CI-and-repair-the-te.patch
+Patch5: 0005-Fix-the-logger-closed-stderr-ignored-levels-format-s.patch
+Patch6: 0006-Require-a-second-factor-when-the-provider-did-not-re.patch
 
 # List of build-time dependencies:
 BuildRequires: gcc
@@ -40,6 +43,9 @@ identity provider using OAuth 2.0 Device Flow.
 %patch -P 1 -p1
 %patch -P 2 -p1
 %patch -P 3 -p1
+%patch -P 4 -p1
+%patch -P 5 -p1
+%patch -P 6 -p1
 
 %build
 make
@@ -63,6 +69,11 @@ cp config_template.json ${RPM_BUILD_ROOT}%{_sysconfdir}/pam_oauth2_device/config
 
 
 %changelog
+* Mon Oct 13 2026 Jason Patton <jpatton@cs.wisc.edu> - 1.04-1.1
+- Update to stfc upstream v1.04
+- Fix logging: closed stderr, ignored levels, format strings
+- Require MFA second factor when provider did not record MFA
+
 * Fri Oct 3 2025 Brian Lin <brian.lin@wisc.edu> - 1.03-1.1
 - Update to stfc upstream v1.03
 - Prevent package from stomping on existing config

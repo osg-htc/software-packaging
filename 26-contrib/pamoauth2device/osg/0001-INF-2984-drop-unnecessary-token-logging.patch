@@ -1,14 +1,14 @@
-From 5241d9a99be99a3f665946f445bef8a550c90b0d Mon Sep 17 00:00:00 2001
+From 49bdfa2d0360dc6ce03a7f78b14eaf078243a5f5 Mon Sep 17 00:00:00 2001
 From: Brian Lin <blin@cs.wisc.edu>
 Date: Mon, 20 Oct 2025 15:33:42 -0500
-Subject: [PATCH 3/6] INF-2984: drop unnecessary token logging
+Subject: [PATCH 1/6] INF-2984: drop unnecessary token logging
 
 ---
  src/pam_oauth2_device.cpp | 1 -
  1 file changed, 1 deletion(-)
 
 diff --git a/src/pam_oauth2_device.cpp b/src/pam_oauth2_device.cpp
-index d3b8e8f..c357601 100644
+index 833d97f..1f13e64 100644
 --- a/src/pam_oauth2_device.cpp
 +++ b/src/pam_oauth2_device.cpp
 @@ -221,7 +221,6 @@ void poll_for_token(Config const &config,
@@ -20,5 +20,5 @@ index d3b8e8f..c357601 100644
              if (data["error"].empty())
              {
 -- 
-2.50.1
+2.50.1 (Apple Git-155)
 
