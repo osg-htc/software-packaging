@@ -1,14 +1,14 @@
-From a4e6ec62754afb623b9e84465b32e38e64d08ee7 Mon Sep 17 00:00:00 2001
+From 1dd5424cf1adc18a4ba3c224055e765006890d7c Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Tue, 28 Jan 2025 09:57:02 -0600
-Subject: [PATCH 3/4] [#6] [XrdSciTokens] Handle multiple authorization token
+Subject: [PATCH 3/6] [#6] [XrdSciTokens] Handle multiple authorization token
  setups
 
-Cherry-picked from 80b0b79b0c86ef8b80533a4faba46a5dbfbe2320
+Cherry-picked from a4e6ec62754afb623b9e84465b32e38e64d08ee7
 
 Fixed conflicts in
 
- 	src/XrdOuc/XrdOucEnv.cc
+ 	src/XrdOuc/XrdOucUtils.cc
 ---
  src/XrdHttpTpc/XrdHttpTpcUtils.cc      |   5 +-
  src/XrdMacaroons/XrdMacaroonsAuthz.cc  |   4 +
@@ -52,10 +52,10 @@ index 8cdb59a81..b746f9f0f 100644
 \ No newline at end of file
 +}
 diff --git a/src/XrdMacaroons/XrdMacaroonsAuthz.cc b/src/XrdMacaroons/XrdMacaroonsAuthz.cc
-index f4de9430f..cdce04ffa 100644
+index 47fb7b10c..917d9a38e 100644
 --- a/src/XrdMacaroons/XrdMacaroonsAuthz.cc
 +++ b/src/XrdMacaroons/XrdMacaroonsAuthz.cc
-@@ -173,6 +173,10 @@ Authz::Access(const XrdSecEntity *Entity, const char *path,
+@@ -174,6 +174,10 @@ Authz::Access(const XrdSecEntity *Entity, const char *path,
  
      const char *authz = env ? env->Get("authz") : nullptr;
      if (authz && !strncmp(authz, "Bearer%20", 9))
@@ -148,15 +148,15 @@ index b3e3a628f..adc4d2c53 100644
  
  /******************************************************************************/
 diff --git a/src/XrdOuc/XrdOucUtils.cc b/src/XrdOuc/XrdOucUtils.cc
-index 297db122f..30b538a03 100644
+index 02c3b005b..f106f7e2a 100644
 --- a/src/XrdOuc/XrdOucUtils.cc
 +++ b/src/XrdOuc/XrdOucUtils.cc
-@@ -1611,7 +1611,7 @@ std::string obfuscateAuth(const std::string& input)
+@@ -1638,7 +1638,7 @@ std::string obfuscateAuth(const std::string& input)
  {
    static const regex_t auth_regex = []() {
      constexpr char re[] =
--      "(authz=|(transferheader)?(www-|proxy-)?auth(orization|enticate)[[:space:]]*:[[:space:]]*)"
-+      "(access_token=|authz=|(transferheader)?(www-|proxy-)?auth(orization|enticate)[[:space:]]*:[[:space:]]*)"
+-      "(authz=|(transferheader)?(www-|proxy-)?auth(orization|enticate)([[:space:]]*:[[:space:]]*|[[:space:]]+))"
++      "(access_token=|authz=|(transferheader)?(www-|proxy-)?auth(orization|enticate)([[:space:]]*:[[:space:]]*|[[:space:]]+))"
        "(Bearer([[:space:]]|%20)?(token([[:space:]]|%20)?)?)?";
  
      regex_t regex;
@@ -1377,10 +1377,10 @@ index 000000000..ac8fe6da6
 +    }	    
 +}
 diff --git a/tests/XrdOucTests/XrdOucUtilsTests.cc b/tests/XrdOucTests/XrdOucUtilsTests.cc
-index be84e7293..7de90517f 100644
+index 2ddf447a5..fae9caa35 100644
 --- a/tests/XrdOucTests/XrdOucUtilsTests.cc
 +++ b/tests/XrdOucTests/XrdOucUtilsTests.cc
-@@ -102,13 +102,16 @@ static const std::string plain_urls[] = {
+@@ -137,13 +137,16 @@ static const std::string plain_urls[] = {
  
  static const std::string authz_strings[] = {
    "authz=REDACTED",

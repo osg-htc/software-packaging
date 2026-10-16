@@ -1,0 +1,134 @@
+From 9d103e977922be04e87c297ed166fa0e94ce148a Mon Sep 17 00:00:00 2001
+From: John Thiltges <jthiltges2@unl.edu>
+Date: Thu, 1 Oct 2026 10:27:45 -0500
+Subject: [PATCH 6/6] [#62] Don't use -EWOULDBLOCK as the pending-read sentinel
+
+File::Read() and File::ReadV() returned -EWOULDBLOCK to mean "queued; the
+ReadReqRH will be called later".  On Linux EWOULDBLOCK equals EAGAIN, so a
+read that failed with EAGAIN -- e.g. XrdCl::errRetry, which XrdPosixMap maps
+to EAGAIN -- and completed synchronously was taken for a pending one.  The
+synchronous IOFile/IOFileBlock readers then waited forever for a callback
+that is never made, and the asynchronous ones never called Done().
+
+Return kReadPending, which cannot be a -errno, instead.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/XrdPfc/XrdPfcFile.cc        |  4 ++--
+ src/XrdPfc/XrdPfcFile.hh        |  7 +++++++
+ src/XrdPfc/XrdPfcIOFile.cc      | 10 +++++-----
+ src/XrdPfc/XrdPfcIOFileBlock.cc |  2 +-
+ 4 files changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/src/XrdPfc/XrdPfcFile.cc b/src/XrdPfc/XrdPfcFile.cc
+index 6aca19580..97e2b990e 100644
+--- a/src/XrdPfc/XrdPfcFile.cc
++++ b/src/XrdPfc/XrdPfcFile.cc
+@@ -845,7 +845,7 @@ int File::ReadBlocksFromDisk(std::vector<XrdOucIOVec>& ioVec, int expected_size)
+ int File::Read(IO *io, char* iUserBuff, long long iUserOff, int iUserSize, ReadReqRH *rh)
+ {
+    // rrc_func is ONLY called from async processing.
+-   // If this function returns anything other than -EWOULDBLOCK, rrc_func needs to be called by the caller.
++   // If this function returns anything other than kReadPending, rrc_func needs to be called by the caller.
+    // This streamlines implementation of synchronous IO::Read().
+ 
+    TRACEF(Dump, "Read() sid: " << Xrd::hex1 << rh->m_seq_id << " size: " << iUserSize);
+@@ -1142,7 +1142,7 @@ int File::ReadOpusCoalescere(IO *io, const XrdOucIOVec *readV, int readVnum,
+       else
+       {
+          m_state_cond.UnLock();
+-         return -EWOULDBLOCK;
++         return kReadPending;
+       }
+    }
+    else
+diff --git a/src/XrdPfc/XrdPfcFile.hh b/src/XrdPfc/XrdPfcFile.hh
+index f409abe15..d39d1b382 100644
+--- a/src/XrdPfc/XrdPfcFile.hh
++++ b/src/XrdPfc/XrdPfcFile.hh
+@@ -25,6 +25,7 @@
+ #include "XrdOuc/XrdOucCache.hh"
+ #include "XrdOuc/XrdOucIOVec.hh"
+ 
++#include <climits>
+ #include <functional>
+ #include <list>
+ #include <map>
+@@ -46,6 +47,12 @@ struct ReadVChunkListRAM;
+ struct ReadVBlockListDisk;
+ struct ReadVChunkListDisk;
+ 
++// Returned by File::Read()/ReadV() when the request is queued and its ReadReqRH will
++// be called later.  Must not be a -errno: the former -EWOULDBLOCK equals -EAGAIN on
++// Linux, so a read that failed with EAGAIN was mistaken for a pending one.  Not
++// INT_MIN itself, so that negating it, as error paths do, stays well defined.
++constexpr int kReadPending = INT_MIN + 1;
++
+ struct ReadReqRH : public XrdOucCacheIOCB
+ {
+    int               m_expected_size = 0;
+diff --git a/src/XrdPfc/XrdPfcIOFile.cc b/src/XrdPfc/XrdPfcIOFile.cc
+index 0bac86c7f..32250ba04 100644
+--- a/src/XrdPfc/XrdPfcIOFile.cc
++++ b/src/XrdPfc/XrdPfcIOFile.cc
+@@ -156,7 +156,7 @@ int IOFile::Read(char *buff, long long off, int size)
+ 
+    rh->m_cond.Lock();
+    int retval = ReadBegin(buff, off, size, rh);
+-   if (retval == -EWOULDBLOCK)
++   if (retval == kReadPending)
+    {
+       rh->m_cond.Wait();
+       retval = rh->m_retval;
+@@ -186,7 +186,7 @@ void IOFile::Read(XrdOucCacheIOCB &iocb, char *buff, long long off, int size)
+    TRACEIO(Dump, "Read() async " << this << " sid: " << Xrd::hex1 << rh->m_seq_id << " off: " << off << " size: " << size);
+ 
+    int retval = ReadBegin(buff, off, size, rh);
+-   if (retval != -EWOULDBLOCK)
++   if (retval != kReadPending)
+    {
+       rh->Done(retval);
+    }
+@@ -221,7 +221,7 @@ void IOFile::pgRead(XrdOucCacheIOCB &iocb, char *buff, long long off, int size,
+       };
+ 
+    int retval = ReadBegin(buff, off, size, rh);
+-   if (retval != -EWOULDBLOCK)
++   if (retval != kReadPending)
+    {
+       rh->Done(retval);
+    }
+@@ -282,7 +282,7 @@ int IOFile::ReadV(const XrdOucIOVec *readV, int n)
+ 
+    rh->m_cond.Lock();
+    int retval = ReadVBegin(readV, n, rh);
+-   if (retval == -EWOULDBLOCK)
++   if (retval == kReadPending)
+    {
+       rh->m_cond.Wait();
+       retval = rh->m_retval;
+@@ -309,7 +309,7 @@ void IOFile::ReadV(XrdOucCacheIOCB &iocb, const XrdOucIOVec *readV, int n)
+    TRACEIO(Dump, "ReadV() async " << this << " sid: " << Xrd::hex1 << rh->m_seq_id << " n_chunks: " <<  n);
+ 
+    int retval = ReadVBegin(readV, n, rh);
+-   if (retval != -EWOULDBLOCK)
++   if (retval != kReadPending)
+    {
+       rh->Done(retval);
+    }
+diff --git a/src/XrdPfc/XrdPfcIOFileBlock.cc b/src/XrdPfc/XrdPfcIOFileBlock.cc
+index 7b72500c0..5fad5123e 100644
+--- a/src/XrdPfc/XrdPfcIOFileBlock.cc
++++ b/src/XrdPfc/XrdPfcIOFileBlock.cc
+@@ -370,7 +370,7 @@ int IOFileBlock::Read(char *buff, long long off, int size)
+ 
+          rh.m_cond.Lock();
+          retvalBlock = fb->Read(this, buff, off, readBlockSize, &rh);
+-         if (retvalBlock == -EWOULDBLOCK)
++         if (retvalBlock == kReadPending)
+          {
+             rh.m_cond.Wait();
+             retvalBlock = rh.m_retval;
+-- 
+2.52.0
+

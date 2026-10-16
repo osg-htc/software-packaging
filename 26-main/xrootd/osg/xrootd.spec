@@ -1,4 +1,3 @@
-%bcond_with    asan
 %bcond_with    ceph
 %bcond_with    clang
 %if 0%{?osg:1}%{!?osg:0}
@@ -21,14 +20,14 @@
 
 Name:		xrootd
 Epoch:		1
-Release:	1.1%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.1%{?dist}%{?with_clang:.clang}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
 URL:		https://xrootd.org
 
 %if !%{with git}
-Version:	6.1.1
+Version:	6.2.0
 Source0:	https://xrootd.web.cern.ch/download/v%{version}/%{name}-%{version}.tar.gz
 %else
 %define git_version %(tar xzf %{_sourcedir}/%{name}.tar.gz -O xrootd/VERSION)
@@ -45,9 +44,13 @@ Patch1: 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~8d1252d.patch
 # PelicanPlatform/xrootd #44 (xrootd/xrootd #2576):
 Patch2: 0002-42-Full-pkcs11-integration~b693ea6.patch
 # PelicanPlatform/xrootd #6 (xrootd/xrootd #2397):
-Patch3: 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~e30714f.patch
+Patch3: 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~75b7f13.patch
 # PelicanPlatform/xrootd #48 (no upstream):
 Patch4: 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+# PelicanPlatform/xrootd #57 (no upstream)
+Patch5: 0005-57-Initialize-XrdThrottleManager-counters-and-wake-o~7c7e770.patch
+# PelicanPlatform/xrootd #62 (xrootd/xrootd #2974)
+Patch6: 0006-62-Don-t-use-EWOULDBLOCK-as-the-pending-read-sentine~94a3706.patch
 
 BuildRequires:	cmake
 BuildRequires:	gcc-c++
@@ -80,10 +83,6 @@ BuildRequires:	voms-devel
 BuildRequires:	scitokens-cpp-devel
 BuildRequires:  libxcrypt-devel
 
-%if %{with asan}
-BuildRequires:	libasan
-%endif
-
 %if %{with ceph}
 BuildRequires:	librados-devel
 BuildRequires:	libradosstriper-devel
@@ -103,13 +102,18 @@ BuildRequires:	python3-sphinx
 BuildRequires:	attr
 BuildRequires:	coreutils
 BuildRequires:	curl
-BuildRequires:	gtest-devel
 BuildRequires:	jq
 BuildRequires:	krb5-server
 BuildRequires:	krb5-workstation
 BuildRequires:	openssl
 BuildRequires:	procps-ng
+BuildRequires:	python3-pytest
 BuildRequires:	sqlite
+%if 0%{?fedora}
+BuildRequires:	util-linux-script
+%else
+BuildRequires:	util-linux
+%endif
 %endif
 
 %if %{with xrdec}
@@ -330,7 +334,6 @@ export CXX=clang++
 
 %cmake \
     -DFORCE_ENABLED:BOOL=TRUE \
-    -DENABLE_ASAN:BOOL=%{with asan} \
     -DENABLE_CEPH:BOOL=%{with ceph} \
     -DENABLE_FUSE:BOOL=TRUE \
     -DENABLE_KRB5:BOOL=TRUE \
@@ -376,14 +379,14 @@ doxygen Doxyfile
 	rm -f %{buildroot}%{_libdir}/libXrdCephPosix.so
 %endif
 
+%{__python3} -m pip install \
+	--no-deps --ignore-installed --disable-pip-version-check --verbose \
+	--prefix %{buildroot}%{_prefix} %{_vpath_builddir}/python/dist/*.whl
+
 rm -f %{buildroot}%{python3_sitearch}/xrootd-*.*-info/direct_url.json
 rm -f %{buildroot}%{python3_sitearch}/xrootd-*.*-info/RECORD
 [ -r %{buildroot}%{python3_sitearch}/xrootd-*.*-info/INSTALLER ] && \
 	sed s/pip/rpm/ -i %{buildroot}%{python3_sitearch}/xrootd-*.*-info/INSTALLER
-
-%{__python3} -m pip install \
-	--no-deps --ignore-installed --disable-pip-version-check --verbose \
-	--prefix %{buildroot}%{_prefix} %{_vpath_builddir}/python
 
 %if %{with docs}
 LD_LIBRARY_PATH=%{buildroot}%{_libdir} \
@@ -696,7 +699,7 @@ fi
 
 %files scitokens
 %{_libdir}/libXrdAccSciTokens-6.so
-%{_libdir}/libXrdSciTokensObj.so
+#%%{_libdir}/libXrdSciTokensObj.so
 %doc src/XrdSciTokens/README.md
 
 
@@ -718,6 +721,23 @@ fi
 %endif
 
 %changelog
+* Fri Oct 16 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.2.0-1.1
+- Update to XRootD 6.2.0 and add OSG/Pelican patches (SOFTWARE-6431)
+    - Patches kept:
+        - 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~8d1252d.patch
+        - 0002-42-Full-pkcs11-integration~b693ea6.patch
+        - 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~e30714f.patch -> 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~75b7f13.patch
+        - 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+    - Patches added:
+        - 0005-57-Initialize-XrdThrottleManager-counters-and-wake-o~7c7e770.patch
+        - 0006-62-Don-t-use-EWOULDBLOCK-as-the-pending-read-sentine~94a3706.patch
+
+* Tue Sep 29 2026 Guilherme Amadio <amadio@cern.ch> - 1:6.2.0-1
+- XRootD 6.2.0
+
+* Thu Sep 24 2026 Guilherme Amadio <amadio@cern.ch> - 1:5.9.8-1
+- XRootD 5.9.8
+
 * Thu Aug 20 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.1.1-1.1
 - Update to XRootD 6.1.1 and add OSG/Pelican patches (SOFTWARE-6329)
     - Patches kept:
@@ -725,6 +745,12 @@ fi
         - 0002-42-Full-pkcs11-integration~d92e458.patch -> 0002-42-Full-pkcs11-integration~b693ea6.patch
         - 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~976e1d8.patch -> 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~e30714f.patch
         - 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch -> 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+
+* Fri Aug 10 2026 Guilherme Amadio <amadio@cern.ch> - 1:6.1.1-1
+- XRootD 6.1.1
+
+* Fri Aug 07 2026 Guilherme Amadio <amadio@cern.ch> - 1:5.9.7-1
+- XRootD 5.9.7
 
 * Fri Jul 03 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.1.0-1.1
 - Update to XRootD 6.1.0 and add OSG/Pelican patches (SOFTWARE-6329) 
