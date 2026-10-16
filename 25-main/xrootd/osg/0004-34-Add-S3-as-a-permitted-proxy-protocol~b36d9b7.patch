@@ -1,7 +1,7 @@
 From 146bc24eeea9d31b2201e9a0be21268b09d88d64 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Sat, 12 Jul 2025 07:20:21 -0500
-Subject: [PATCH 4/8] [#34] Add S3 as a permitted proxy protocol
+Subject: [PATCH 04/10] [#34] Add S3 as a permitted proxy protocol
 
 ---
  src/XrdApps/XrdCpConfig.cc | 2 ++

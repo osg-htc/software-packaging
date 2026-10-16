@@ -1,7 +1,7 @@
 From 730934677d58368b2eef8e74a8f89556de72706d Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Fri, 28 Aug 2026 15:59:22 -0500
-Subject: [PATCH 8/8] [#58] Wait for in-flight protocol dispatch before
+Subject: [PATCH 08/10] [#58] Wait for in-flight protocol dispatch before
  recycling a link
 
 XrdLinkXeq::DoIt() dispatches a worker thread into Protocol->Process(); for

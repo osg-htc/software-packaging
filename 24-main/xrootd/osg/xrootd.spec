@@ -44,7 +44,7 @@
 #-------------------------------------------------------------------------------
 Name:		xrootd
 Epoch:		1
-Release:	1.2%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
+Release:	1.3%{?dist}%{?with_clang:.clang}%{?with_asan:.asan}
 Summary:	Extended ROOT File Server
 Group:		System Environment/Daemons
 License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AND Zlib
@@ -82,11 +82,13 @@ Patch6: 0006-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 Patch7: 0007-55-XrdPfc-Backstop-crash-from-negative-dir-count-in~57916c2.patch
 # PelicanPlatform/xrootd #58 (no upstream):
 Patch8: 0008-58-Wait-for-in-flight-protocol-dispatch-before-recyc~084e381.patch
+# PelicanPlatform/xrootd #57 (no upstream)
+Patch9: 0009-57-Initialize-XrdThrottleManager-counters-and-wake-o~7c7e770.patch
 # PelicanPlatform/xrootd #62 (xrootd/xrootd #2974)
-Patch9: 0009-62-Don-t-use-EWOULDBLOCK-as-the-pending-read-sentine~94a3706.patch
+Patch10: 0010-62-Don-t-use-EWOULDBLOCK-as-the-pending-read-sentine~94a3706.patch
 
 ## xrootd/xrootd #2825 (no PelicanPlatform)
-#Patch10: 2825-orphaned-cinfo-or-data.patch
+#Patch11: 2825-orphaned-cinfo-or-data.patch
 
 
 BuildRequires:	cmake
@@ -969,6 +971,10 @@ fi
 # Changelog
 #-------------------------------------------------------------------------------
 %changelog
+* Fri Oct 16 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.8-1.3
+- Add 0009-57-Initialize-XrdThrottleManager-counters-and-wake-o~7c7e770.patch (SOFTWARE-6427)
+- Rename 0009-62-Don-t-use-EWOULDBLOCK-as-the-pending-read-sentine~94a3706.patch to 0010-62-Don-t-use-EWOULDBLOCK-as-the-pending-read-sentine~94a3706.patch
+
 * Thu Oct 15 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 5.9.8-1.2
 - Add 0009-62-Don-t-use-EWOULDBLOCK-as-the-pending-read-sentine~94a3706.patch (SOFTWARE-6427)
 
