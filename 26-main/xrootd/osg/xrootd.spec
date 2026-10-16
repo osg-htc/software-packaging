@@ -699,7 +699,7 @@ fi
 
 %files scitokens
 %{_libdir}/libXrdAccSciTokens-6.so
-#%%{_libdir}/libXrdSciTokensObj.so
+%{_libdir}/libXrdSciTokensObj.so
 %doc src/XrdSciTokens/README.md
 
 
@@ -746,7 +746,7 @@ fi
         - 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~976e1d8.patch -> 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~e30714f.patch
         - 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch -> 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 
-* Fri Aug 10 2026 Guilherme Amadio <amadio@cern.ch> - 1:6.1.1-1
+* Mon Aug 10 2026 Guilherme Amadio <amadio@cern.ch> - 1:6.1.1-1
 - XRootD 6.1.1
 
 * Fri Aug 07 2026 Guilherme Amadio <amadio@cern.ch> - 1:5.9.7-1
