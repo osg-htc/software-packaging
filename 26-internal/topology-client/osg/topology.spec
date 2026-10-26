@@ -1,7 +1,7 @@
 
 Summary: Client tools for OSG Topology
 Name: topology-client
-Version: 1.73.0
+Version: 1.74.0
 Release: 1%{?dist}
 Source: topology-%{version}.tar.gz
 License: Apache 2.0
@@ -75,6 +75,9 @@ install -D -m 0644 topology-cacher.cron %{buildroot}/etc/cron.d/topology-cacher.
 
 
 %changelog
+* Mon Oct 26 2026 Matt Westphall <westphall@wisc.edu> - 1.74.0-1
+- Use new bitbucket SSH host for contacts (SOFTWARE-6440)
+
 * Mon Oct 05 2026 Matt Westphall <westphall@wisc.edu> - 1.73.1-1
 - Update osg-notify to clearsign emails
 
