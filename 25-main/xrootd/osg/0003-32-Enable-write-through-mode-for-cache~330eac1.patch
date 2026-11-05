@@ -1,7 +1,7 @@
-From 58717e84092d9d349029b85fd20463e05c23b56b Mon Sep 17 00:00:00 2001
+From 7a99bcac93e51f9d36b697f651bce964834b7028 Mon Sep 17 00:00:00 2001
 From: Brian Bockelman <bbockelman@morgridge.org>
 Date: Sun, 6 Apr 2025 13:52:43 -0500
-Subject: [PATCH 03/10] [#32] Enable write-through mode for cache
+Subject: [PATCH 3/8] [#32] Enable write-through mode for cache
 
 Allow the PFC to proxy ("write-through") writes when configured
 to do so (default is current behavior of disabling writes).
@@ -21,7 +21,7 @@ where the default write mode is `off`.
  3 files changed, 37 insertions(+), 1 deletion(-)
 
 diff --git a/src/XrdPfc/XrdPfc.cc b/src/XrdPfc/XrdPfc.cc
-index b30de53ec..b3a2f728b 100644
+index 5be1ac1d3..5101d4998 100644
 --- a/src/XrdPfc/XrdPfc.cc
 +++ b/src/XrdPfc/XrdPfc.cc
 @@ -180,7 +180,11 @@ XrdOucCacheIO *Cache::Attach(XrdOucCacheIO *io, int Options)
@@ -37,7 +37,7 @@ index b30de53ec..b3a2f728b 100644
     {
        TRACE(Info, tpfx << obfuscateAuth(io->Path()));
  
-@@ -1072,6 +1076,10 @@ int Cache::Prepare(const char *curl, int oflags, mode_t mode)
+@@ -1074,6 +1078,10 @@ int Cache::Prepare(const char *curl, int oflags, mode_t mode)
     // Do not allow write access.
     if ((oflags & O_ACCMODE) != O_RDONLY)
     {

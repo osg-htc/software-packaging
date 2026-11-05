@@ -1,0 +1,194 @@
+From bef7327677f350e1f33ca76430a0cfdb538da586 Mon Sep 17 00:00:00 2001
+From: Brian Bockelman <bbockelman@morgridge.org>
+Date: Sat, 17 Oct 2026 19:36:53 -0500
+Subject: [PATCH 9/9] [#66] [XrdPfc] Service open requests on a timer during
+ the initial scan
+
+While the ResourceMonitor's initial namespace scan runs, every File::Open
+queues itself and blocks until the scan thread has cross-checked the
+file's directory. The scan thread only drained that queue once every 100
+directories traversed. On a large cache under heavy load, 100 directories
+(or a single huge one) can take minutes to stat, so every new open waits
+for minutes and the cache stops serving. A production cache was observed
+with ~2850 threads parked in CrossCheckIfScanIsInProgress across three
+stack captures while the scanner sat in one directory read.
+
+Service the queue on a time basis (at most every 100ms) instead, from
+two places on the scan thread: between directories, and every 1024
+entries while reading a single directory. To make the mid-directory
+checkpoint safe, the out-of-band directory scan now uses a private
+FsTraversal rather than the main traversal's buffers. Each checkpoint
+services only the requests present when it starts, so a steady stream
+of opens can no longer starve the scan (and keep the gate closed).
+
+The accounting guarantee is unchanged: a waiter is released only after
+its directory's baseline usage has been recorded, and all DirState tree
+access stays on the scan thread.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/XrdPfc/XrdPfcFsTraversal.cc     |  4 +++
+ src/XrdPfc/XrdPfcFsTraversal.hh     |  7 +++++
+ src/XrdPfc/XrdPfcResourceMonitor.cc | 43 +++++++++++++++++++++--------
+ src/XrdPfc/XrdPfcResourceMonitor.hh | 10 +++++--
+ 4 files changed, 50 insertions(+), 14 deletions(-)
+
+diff --git a/src/XrdPfc/XrdPfcFsTraversal.cc b/src/XrdPfc/XrdPfcFsTraversal.cc
+index e2fac0355..e47f99109 100644
+--- a/src/XrdPfc/XrdPfcFsTraversal.cc
++++ b/src/XrdPfc/XrdPfcFsTraversal.cc
+@@ -167,8 +167,12 @@ void FsTraversal::slurp_dir_ll(XrdOssDF &dh, int dir_level, const char *path, co
+    m_current_dirs.clear();
+    m_current_files.clear();
+ 
++   int n_entries = 0;
+    while (true)
+    {
++      if (m_readdir_hook && ++n_entries % s_readdir_hook_period == 0)
++         m_readdir_hook();
++
+       int rc = dh.Readdir(fname, 256);
+ 
+       if (rc == -ENOENT)
+diff --git a/src/XrdPfc/XrdPfcFsTraversal.hh b/src/XrdPfc/XrdPfcFsTraversal.hh
+index 91ceac3de..376f806cc 100644
+--- a/src/XrdPfc/XrdPfcFsTraversal.hh
++++ b/src/XrdPfc/XrdPfcFsTraversal.hh
+@@ -4,6 +4,7 @@
+ #include "XrdOss/XrdOssAt.hh"
+ #include "XrdOuc/XrdOucEnv.hh"
+ 
++#include <functional>
+ #include <string>
+ #include <vector>
+ #include <map>
+@@ -54,6 +55,12 @@ class FsTraversal
+ 
+    std::set<std::string> m_protected_top_dirs;          // directories that will NOT be traversed at relative level 0.
+ 
++   // Optional callback invoked every s_readdir_hook_period entries while a directory
++   // is being read, so long reads of a single huge directory can yield to other work.
++   // The callback must not use this FsTraversal object.
++   std::function<void()> m_readdir_hook;
++   static const int      s_readdir_hook_period = 1024;
++
+    static const char *m_traceID;
+ 
+    void slurp_current_dir();
+diff --git a/src/XrdPfc/XrdPfcResourceMonitor.cc b/src/XrdPfc/XrdPfcResourceMonitor.cc
+index 5ce8ca7cc..4bf0b2be1 100644
+--- a/src/XrdPfc/XrdPfcResourceMonitor.cc
++++ b/src/XrdPfc/XrdPfcResourceMonitor.cc
+@@ -59,10 +59,34 @@ void ResourceMonitor::CrossCheckIfScanIsInProgress(const std::string &lfn, XrdSy
+    }
+ }
+ 
+-void ResourceMonitor::process_inter_dir_scan_open_requests(FsTraversal &fst)
++void ResourceMonitor::check_inter_dir_scan_open_requests()
++{
++   // Called from the scan thread between directories and periodically while reading
++   // a large directory. Rate-limit on time rather than on number of directories
++   // visited: a single directory can take minutes to stat on a large cache.
++   auto now = std::chrono::steady_clock::now();
++   if (now - m_dir_scan_last_check < s_dir_scan_check_interval)
++      return;
++   m_dir_scan_last_check = now;
++
++   process_inter_dir_scan_open_requests();
++}
++
++void ResourceMonitor::process_inter_dir_scan_open_requests()
+ {
+    m_dir_scan_mutex.Lock();
+-   while ( ! m_dir_scan_open_requests.empty())
++   // Only service the requests present on entry. Under a steady stream of opens the
++   // queue may never become empty and the initial scan would be starved.
++   size_t n_to_process = m_dir_scan_open_requests.size();
++   if (n_to_process == 0)
++   {
++      m_dir_scan_mutex.UnLock();
++      return;
++   }
++   // Use a private traversal object: this may be called while the scan's traversal
++   // is in the middle of reading a directory.
++   FsTraversal fst(m_oss);
++   while (n_to_process-- > 0)
+    {
+       LfnCondRecord &lcr = m_dir_scan_open_requests.front();
+       m_dir_scan_mutex.UnLock();
+@@ -148,15 +172,11 @@ void ResourceMonitor::scan_dir_and_recurse(FsTraversal &fst)
+       fst.m_dir_state->m_scanned = true;
+    }
+ 
+-   // Swap-out directories as inter_dir_scan can use the FsTraversal.
++   // Swap-out directories as recursion reuses the FsTraversal.
+    std::vector<std::string> dirs;
+    dirs.swap(fst.m_current_dirs);
+ 
+-   if (++m_dir_scan_check_counter >= 100)
+-   {
+-      process_inter_dir_scan_open_requests(fst);
+-      m_dir_scan_check_counter = 0;
+-   }
++   check_inter_dir_scan_open_requests();
+ 
+    // Descend into sub-dirs, do not accumulate into recursive_subdir_usage yet. This is done
+    // in a separate pass to allow for proper accounting of files being opened during the initial scan.
+@@ -181,13 +201,13 @@ bool ResourceMonitor::perform_initial_scan()
+    DirState   *root_ds = m_fs_state.get_root();
+    FsTraversal fst(m_oss);
+    fst.m_protected_top_dirs.insert("pfc-stats"); // XXXX This should come from config. Also: N2N?
++   // Keep servicing file-open requests while reading huge directories.
++   fst.m_readdir_hook = [this]() { check_inter_dir_scan_open_requests(); };
+ 
+    if ( ! fst.begin_traversal(root_ds, "/"))
+       return false;
+ 
+-   // The following are initialized in ResourceMonitor.hh to avoid a race at startup:
+-   //   m_dir_scan_in_progress = true;
+-   //   m_dir_scan_check_counter = 0;
++   // m_dir_scan_in_progress is initialized to true in ResourceMonitor.hh to avoid a race at startup.
+ 
+    scan_dir_and_recurse(fst);
+ 
+@@ -198,7 +218,6 @@ bool ResourceMonitor::perform_initial_scan()
+    {
+       XrdSysMutexHelper _lock(m_dir_scan_mutex);
+       m_dir_scan_in_progress = false;
+-      m_dir_scan_check_counter = 0;
+    }
+    // m_dir_scan_open_requests should now be final, ie, no new entries will be added.
+    while ( ! m_dir_scan_open_requests.empty())
+diff --git a/src/XrdPfc/XrdPfcResourceMonitor.hh b/src/XrdPfc/XrdPfcResourceMonitor.hh
+index 2e9cc7bb4..c5f6b4c59 100644
+--- a/src/XrdPfc/XrdPfcResourceMonitor.hh
++++ b/src/XrdPfc/XrdPfcResourceMonitor.hh
+@@ -6,6 +6,7 @@
+ 
+ #include "XrdSys/XrdSysPthread.hh"
+ 
++#include <chrono>
+ #include <string>
+ #include <vector>
+ #include <list>
+@@ -133,10 +134,15 @@ class ResourceMonitor
+ 
+    XrdSysMutex              m_dir_scan_mutex;
+    std::list<LfnCondRecord> m_dir_scan_open_requests;
+-   int                      m_dir_scan_check_counter = 0;
+    bool                     m_dir_scan_in_progress = true;
+ 
+-   void process_inter_dir_scan_open_requests(FsTraversal &fst);
++   // Open requests are serviced from the scan thread at most this often; an open
++   // waits for roughly this long (plus the time to scan its own directory).
++   static constexpr std::chrono::milliseconds s_dir_scan_check_interval{100};
++   std::chrono::steady_clock::time_point      m_dir_scan_last_check;
++
++   void check_inter_dir_scan_open_requests();
++   void process_inter_dir_scan_open_requests();
+    void cross_check_or_process_oob_lfn(const std::string &lfn, FsTraversal &fst);
+    long long get_file_usage_bytes_to_remove(const DataFsPurgeshot &ps, long long previous_file_usage, int logLeve);
+ 
+-- 
+2.52.0
+
