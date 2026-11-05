@@ -1,7 +1,7 @@
-From 97d8606bc463e8c645a836f0aee0a7c5a352fc1f Mon Sep 17 00:00:00 2001
+From ebb1bb54e8c261707e8d7ecc2b180c528433826a Mon Sep 17 00:00:00 2001
 From: Brian Aydemir <baydemir@morgridge.org>
 Date: Fri, 16 Oct 2026 11:49:47 -0500
-Subject: [PATCH 5/6] [#57] Initialize XrdThrottleManager counters and
+Subject: [PATCH 5/5] [#57] Initialize XrdThrottleManager counters and
  wake-order state (#63)
 
 Under C++17, several members started out as heap garbage, which

@@ -27,7 +27,7 @@ License:	LGPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND curl AND MIT AN
 URL:		https://xrootd.org
 
 %if !%{with git}
-Version:	6.2.0
+Version:	6.2.1
 Source0:	https://xrootd.web.cern.ch/download/v%{version}/%{name}-%{version}.tar.gz
 %else
 %define git_version %(tar xzf %{_sourcedir}/%{name}.tar.gz -O xrootd/VERSION)
@@ -49,8 +49,6 @@ Patch3: 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~75b7f13.patch
 Patch4: 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
 # PelicanPlatform/xrootd #57 (no upstream)
 Patch5: 0005-57-Initialize-XrdThrottleManager-counters-and-wake-o~7c7e770.patch
-# PelicanPlatform/xrootd #62 (xrootd/xrootd #2974)
-Patch6: 0006-62-Don-t-use-EWOULDBLOCK-as-the-pending-read-sentine~94a3706.patch
 
 BuildRequires:	cmake
 BuildRequires:	gcc-c++
@@ -721,6 +719,23 @@ fi
 %endif
 
 %changelog
+* Thu Nov 05 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.2.1-1.1
+- Update to XRootD 6.2.1 and add OSG/Pelican patches (SOFTWARE-6445)
+    - Patches kept:
+        - 0001-1-Allow-hostname-used-by-XRootD-to-be-overridden-by~8d1252d.patch
+        - 0002-42-Full-pkcs11-integration~b693ea6.patch
+        - 0003-6-XrdSciTokens-Handle-multiple-authorization-token-s~75b7f13.patch
+        - 0004-48-Fix-XRootD-local-build-error-caused-by-libXrdAccS~e742ff8.patch
+        - 0005-57-Initialize-XrdThrottleManager-counters-and-wake-o~7c7e770.patch
+    - Patches dropped:
+        - 0006-62-Don-t-use-EWOULDBLOCK-as-the-pending-read-sentine~94a3706.patch
+
+* Thu Oct 29 2026 Guilherme Amadio <amadio@cern.ch> - 1:6.2.1-1
+- XRootD 6.2.1
+
+* Wed Oct 28 2026 Guilherme Amadio <amadio@cern.ch> - 1:5.9.9-1
+- XRootD 5.9.9
+
 * Fri Oct 16 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 1:6.2.0-1.1
 - Update to XRootD 6.2.0 and add OSG/Pelican patches (SOFTWARE-6431)
     - Patches kept:

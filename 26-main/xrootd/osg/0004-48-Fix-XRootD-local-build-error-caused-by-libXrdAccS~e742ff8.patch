@@ -1,7 +1,7 @@
-From 8fdfb3b50652d54b8b44f9887619fcc30ec1865c Mon Sep 17 00:00:00 2001
+From 7aa15ffc04be60fbea4d2af1412fbf3155174e03 Mon Sep 17 00:00:00 2001
 From: Howard Zhong <hzhong45@wisc.edu>
 Date: Wed, 27 Aug 2025 19:47:41 +0000
-Subject: [PATCH 4/6] [#48] Fix XRootD local build error caused by
+Subject: [PATCH 4/5] [#48] Fix XRootD local build error caused by
  libXrdAccSciTokens
 
 ---
