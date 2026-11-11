@@ -23,7 +23,7 @@
 # For Release Candidate builds, check with Software team on release string
 # ------------------------------------------------------------------------------
 %global version 3.11.5
-%global release 0.1.rc1
+%global release 0.2.rc2
 
 %global frontend_xml frontend.xml
 %global factory_xml glideinWMS.xml
@@ -278,6 +278,7 @@ Requires: fetch-crl
 #Requires: python3 >= %{python_min_version}
 # This is in py3 std library - Requires: python-argparse
 Requires: javascriptrrd >= 1.1.0
+Requires: cpio >= 2.13
 Requires: initscripts
 Requires: python3-requests
 Requires: python3-jwt
@@ -1098,10 +1099,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Thu Oct 8 2026 Marco Mambelli <marcom@fnal.gov> - 3.11.5
+* Wed Nov 11 2026 Marco Mambelli <marcom@fnal.gov> - 3.11.5
 - Glideinwms v3.11.5
 - Release Notes: http://glideinwms.fnal.gov/doc.v3_11_5/history.html
-- Release candidates 3.11.5-01.rc1
+- Release candidates 3.11.5-01.rc1 to 3.11.5-02.rc2
 
 * Thu Oct 1 2026 Marco Mambelli <marcom@fnal.gov> - 3.10.19
 - Glideinwms v3.10.19
