@@ -22,7 +22,7 @@
 # ------------------------------------------------------------------------------
 # For Release Candidate builds, check with Software team on release string
 # ------------------------------------------------------------------------------
-%global version 3.11.4
+%global version 3.11.5
 %global release 1
 
 %global frontend_xml frontend.xml
@@ -278,6 +278,7 @@ Requires: fetch-crl
 #Requires: python3 >= %{python_min_version}
 # This is in py3 std library - Requires: python-argparse
 Requires: javascriptrrd >= 1.1.0
+Requires: cpio >= 2.13
 Requires: initscripts
 Requires: python3-requests
 Requires: python3-jwt
@@ -387,6 +388,7 @@ install -d $RPM_BUILD_ROOT%{python3_sitelib}
 cp -r ../glideinwms $RPM_BUILD_ROOT%{python3_sitelib}
 
 # Some of the files are not needed by RPM
+rm -Rf $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/dashboards
 rm -Rf $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/bigfiles
 rm -Rf $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/install
 rm -Rf $RPM_BUILD_ROOT%{python3_sitelib}/glideinwms/doc
@@ -1097,7 +1099,17 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Wed May 6 2026 Marco Mambelli <marcom@fnal.gov> - 3.11.4
+* Sat Nov 21 2026 Marco Mambelli <marcom@fnal.gov> - 3.11.5
+- Glideinwms v3.11.5
+- Release Notes: http://glideinwms.fnal.gov/doc.v3_11_5/history.html
+- Release candidates 3.11.5-01.rc1 to 3.11.5-02.rc2
+
+* Thu Oct 1 2026 Marco Mambelli <marcom@fnal.gov> - 3.10.19
+- Glideinwms v3.10.19
+- Release Notes: http://glideinwms.fnal.gov/doc.v3_10_19/history.html
+- Release candidates 3.10.19-01.rc1
+
+* Fri May 8 2026 Marco Mambelli <marcom@fnal.gov> - 3.11.4
 - Glideinwms v3.11.4
 - Release Notes: http://glideinwms.fnal.gov/doc.v3_11_4/history.html
 - Release candidates 3.11.4-01.rc1 to 3.11.4-03.rc3
