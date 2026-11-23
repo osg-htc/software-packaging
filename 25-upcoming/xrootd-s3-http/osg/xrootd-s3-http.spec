@@ -1,6 +1,6 @@
 Name:		xrootd-s3-http
-Version:        0.6.9
-Release:        1.3%{?dist}
+Version:        0.6.10
+Release:        1.1%{?dist}
 Summary:        S3/HTTP/Globus filesystem plugins for xrootd
 
 License:        Apache-2.0
@@ -61,6 +61,10 @@ rm %{buildroot}%{_libdir}/libXrdPelicanHttpCore.so
 %license LICENSE
 
 %changelog
+* Mon Nov 23 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.10-1.1
+- Make deadlock test setup xrootd-version agnostic
+- Handle too long directory names
+
 * Fri Jul 24 2026 Mátyás Selmeci <mselmeci@wisc.edu> - 0.6.9-1.3
 - Simplify spec file
 
